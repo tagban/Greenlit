@@ -339,7 +339,7 @@ function Production({ film, game, setGame }: Props & { film: Film }) {
               {e.choices.map((c, ci) => (
                 <button key={ci} className={e.chosen === ci ? 'selected' : ''} onClick={() => setGame(resolveEvent(game, film, i, ci))}>
                   <strong>{e.chosen === ci ? '✓ ' : ''}{c.label}</strong>
-                  <span>{c.cost ? money(c.cost) : 'Free'} · {c.note}</span>
+                  <span>{c.cost ? money(c.cost) : 'Free'}{c.delay ? ` · ${c.delay} week${c.delay > 1 ? 's' : ''} lost` : ''} · {c.note}</span>
                 </button>
               ))}
             </div>

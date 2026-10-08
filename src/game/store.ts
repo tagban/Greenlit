@@ -4,10 +4,11 @@ import { RegExpMatcher, englishDataset, englishRecommendedTransformers } from 'o
 import { START_YEAR, overheadFor } from './data'
 import { clamp } from './rng'
 import {
-  POST_WEEKS, PRINT_COST, grade, filmQuality, marketingTotal, productionCost, reshootCost, rollProductionEvents,
+  POST_WEEKS, PRINT_COST, grade, filmQuality, marketingTotal, productionCost, reshootCost,
   simulateRelease, talentCost, type MonthSlot,
 } from './sim'
 import { getImages, putImage } from '../images'
+import { applyEventOutcomes, rollProductionEvents } from './events'
 import type { Bid, Film, Game } from './types'
 import { advanceWeeks, campaignOver, yearOf } from './world'
 
@@ -114,7 +115,7 @@ export function confirmCast(game: Game, film: Film): Game {
 
 export function startProduction(game: Game, film: Film): Game {
   const cost = productionCost(film)
-  const events = rollProductionEvents({ ...film, costs: { ...film.costs, production: cost } }, game.talent)
+  const events = rollProductionEvents({ ...film, costs: { ...film.costs, production: cost } }, game)
   return withFilm(game, { ...film, events, costs: { ...film.costs, production: cost }, stage: 'production' }, cost)
 }
 
@@ -129,10 +130,12 @@ export const eventCosts = (film: Film) => film.events.reduce((s, e) => s + (e.ch
 
 export function wrapProduction(game: Game, film: Film): Game {
   const cost = eventCosts(film)
-  const { quality } = filmQuality(film, game.talent)
+  const outcome = applyEventOutcomes(game, film)
+  const wrapped = outcome.film
+  const { quality } = filmQuality(wrapped, outcome.game.talent)
   const testScore = grade(quality + (((film.seed % 13) - 6) | 0))
-  const next = { ...film, testScore, costs: { ...film.costs, events: cost }, stage: 'post' as const }
-  return passTime(withFilm(game, next, cost), film.shootWeeks)
+  const next = { ...wrapped, testScore, costs: { ...wrapped.costs, events: cost }, stage: 'post' as const }
+  return passTime(withFilm(outcome.game, next, cost), film.shootWeeks + outcome.delay)
 }
 
 export function finishPost(game: Game, film: Film, reshoot: boolean): Game {

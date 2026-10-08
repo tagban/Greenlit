@@ -28,8 +28,25 @@ export type ScriptOffer = {
   cost: number
 }
 
-export type EventChoice = { label: string; cost: number; quality: number; note: string }
+export type EventChoice = {
+  label: string
+  cost: number
+  quality: number
+  note: string
+  hype?: number // audience reaction to the story
+  delay?: number // weeks lost
+  rep?: number // studio reputation
+  relLead?: number // how the lead feels about you
+  relDirector?: number
+  relAll?: number // word gets around to every actor and director
+  backerRel?: number
+  recastWith?: string // replacement lead's id
+  replaceDirector?: string
+  aftermath?: string // line for the post-release breakdown
+}
 export type ProductionEvent = {
+  key?: string
+  kills?: string // talent id of someone who dies in this event
   week: number
   title: string
   text: string
@@ -79,6 +96,7 @@ export type Film = {
   parodyTarget?: string
   financing?: Financing
   posterId?: string // player-uploaded poster
+  hypeBonus?: number // from production stories (scandals, tributes, leaks)
   script?: ScriptOffer
   directorId?: string
   leadIds: string[]

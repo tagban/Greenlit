@@ -1,7 +1,7 @@
 import { BACKERS, DEPTS, GENRES, MONTHS, RIVAL_STUDIOS, RIVAL_TITLE_A, RIVAL_TITLE_B, SUBGENRES, subgenreById, type Dept, type Weights } from './data'
 import { clamp, hashSeed, makeRng } from './rng'
 import { reviewFilm, writeBreakdown, writeHeadline } from './text'
-import type { Bid, Film, FilmResult, Game, ProductionEvent, ScriptOffer, Talent } from './types'
+import type { Bid, Film, FilmResult, Game, ScriptOffer, Talent } from './types'
 import { monthOf, talentFee, yearOf } from './world'
 
 export const SCREEN_OPTIONS = [
@@ -11,7 +11,8 @@ export const SCREEN_OPTIONS = [
   { screens: 3800, label: 'Saturation' },
 ]
 export const PRINT_COST = 250
-export const CREW_WEEKLY = 8_000
+export { CREW_WEEKLY } from './events'
+import { CREW_WEEKLY } from './events'
 
 // How much money buys a strong technical / music score. Horror looks scary on a
 // shoestring; a space battle does not.
@@ -127,6 +128,7 @@ export function filmWeights(film: Pick<Film, 'genre' | 'subgenre'>): Weights {
 }
 
 const fitted = (t: Talent | undefined, film: Film) => (t ? t.skill * (0.6 + 0.4 * (t.genreFit[film.genre] / 100)) : 20)
+const money = (n: number) => Math.round(n / 1000) * 1000
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0)
 
 export function deptScores(film: Film, talent: Talent[]): Record<Dept, number> {
@@ -159,81 +161,6 @@ export function filmQuality(film: Film, talent: Talent[]): { quality: number; sc
   const rng = makeRng(hashSeed(film.seed, 'chemistry'))
   q += rng.normal(0, 4) // cast and crew chemistry
   return { quality: clamp(Math.round(q), 1, 99), scores }
-}
-
-// ---------- Production events ----------
-
-type EventTemplate = (rng: ReturnType<typeof makeRng>, scale: number, film: Film, lead?: Talent) => Omit<ProductionEvent, 'week'>
-
-const money = (n: number) => Math.round(n / 1000) * 1000
-
-const EVENT_TEMPLATES: EventTemplate[] = [
-  (rng, s) => ({
-    title: 'Storm on location',
-    text: 'A three-day storm has the crew stuck in their trailers.',
-    choices: [
-      { label: 'Wait it out', cost: money(s * rng.range(0.6, 1)), quality: 0, note: 'Pay for the lost days.' },
-      { label: 'Shoot in the rain', cost: 0, quality: -3, note: 'Saves money, looks rushed.' },
-    ],
-  }),
-  (rng, s, _f, lead) => ({
-    title: `${lead?.name ?? 'Your lead'} won’t come out of their trailer`,
-    text: 'Their agent says a bigger trailer and a rewrite of the big scene would help.',
-    choices: [
-      { label: 'Give in', cost: money(s * rng.range(0.4, 0.8)), quality: 1, note: 'Expensive, but they’ll be happy.' },
-      { label: 'Hold firm', cost: 0, quality: -4, note: 'A sulky performance on camera.' },
-    ],
-  }),
-  (rng, s, film) => ({
-    title: 'Effects shots running over',
-    text: 'The effects house says the big sequence needs more time and money.',
-    choices: [
-      { label: 'Pay the overage', cost: money(s * rng.range(0.8, 1.5) + film.techBudget * 0.1), quality: 0, note: 'Keep the shots as planned.' },
-      { label: 'Cut the sequence', cost: 0, quality: film.genre === 'action' || film.genre === 'scifi' ? -6 : -2, note: 'Cheaper; audiences may notice.' },
-    ],
-  }),
-  (rng, s) => ({
-    title: 'Happy accident',
-    text: 'An improvised moment on set had the whole crew in stitches. The director wants to rework a scene around it.',
-    choices: [
-      { label: 'Rework the scene', cost: money(s * rng.range(0.2, 0.4)), quality: 4, note: 'A bit of extra shooting.' },
-      { label: 'Stick to the script', cost: 0, quality: 0, note: 'Stay on schedule.' },
-    ],
-  }),
-  (rng, s) => ({
-    title: 'Stunt injury',
-    text: 'A stunt performer sprained an ankle. Everyone is OK, but the action scene is on hold.',
-    choices: [
-      { label: 'Delay and reshoot safely', cost: money(s * rng.range(0.5, 0.9)), quality: 0, note: 'Costs a few days.' },
-      { label: 'Cover it in the edit', cost: 0, quality: -3, note: 'Choppy, but it’s done.' },
-    ],
-  }),
-  (rng, s) => ({
-    title: 'Location permit pulled',
-    text: 'The city revoked your street permit at the last minute.',
-    choices: [
-      { label: 'Build the set on a stage', cost: money(s * rng.range(0.7, 1.2)), quality: 1, note: 'Pricey but controlled.' },
-      { label: 'Shoot guerrilla style', cost: 0, quality: -2, note: 'Risky and a little rough.' },
-    ],
-  }),
-]
-
-export function rollProductionEvents(film: Film, talent: Talent[]): ProductionEvent[] {
-  const rng = makeRng(hashSeed(film.seed, 'events'))
-  const crew = [...film.leadIds, ...film.supportIds, film.directorId].map((id) => talent.find((t) => t.id === id)).filter(Boolean) as Talent[]
-  const temper = avg(crew.map((t) => t.temperament)) || 30
-  const rush = Math.max(0, normalShoot(film) - film.shootWeeks)
-  const scale = Math.max(15_000, (film.techBudget + film.costs.talent) * 0.06)
-  const lead = talent.find((t) => t.id === film.leadIds[0])
-  const events: ProductionEvent[] = []
-  for (let week = 1; week <= film.shootWeeks; week++) {
-    const p = 0.1 + temper / 450 + rush * 0.04
-    if (rng.chance(p) && events.length < 3) {
-      const template = rng.pick(EVENT_TEMPLATES)
-      events.push({ week, ...template(rng, scale, film, lead) })
-    }
-  }
-  return events
 }
 
 // ---------- Costs ----------
@@ -300,7 +227,7 @@ export function computeHype(game: Game, film: Film): number {
   const text = film.logline.toLowerCase()
   const sub = subgenreById(film.subgenre)
   const keyword = (text.includes(game.hotKeyword) ? 0.12 : 0) + (sub && sub.keywords.some((k) => text.includes(k)) ? 0.05 : 0)
-  return Math.max(0.15, 0.3 + ((leadStar + directorStar * 0.4) / 100) * 1.1 + marketing + (trend - 1) * 0.8 + keyword)
+  return Math.max(0.15, 0.3 + ((leadStar + directorStar * 0.4) / 100) * 1.1 + marketing + (trend - 1) * 0.8 + keyword + (film.hypeBonus ?? 0))
 }
 
 export function simulateRelease(game: Game, film: Film, slot: MonthSlot): FilmResult {
@@ -314,14 +241,14 @@ export function simulateRelease(game: Game, film: Film, slot: MonthSlot): FilmRe
   const reception = Math.exp(rng.normal(-0.12, 0.42))
   const appeal = Math.pow(trend, 0.6) * (0.6 + (0.6 * quality) / 100) * slot.season * (1 - slot.competition * 0.4) * reception
   const bookable = Math.round(Math.min(film.release.screens, 250 + hype * 1300))
-  let perScreen = 2400 * hype * appeal * rng.range(0.9, 1.1)
+  let perScreen = 2000 * hype * appeal * rng.range(0.9, 1.1)
   let hold = 0.28 + (0.45 * quality) / 100 + (criticScore - 50) / 600 + (reception - 1) * 0.05 - Math.max(0, hype - 2) * 0.03 + rng.normal(0, 0.03)
   if (film.subgenre === 'parody' && trend < 1) hold -= 0.05 // stale target
   hold = clamp(hold, 0.22, 0.8)
   // Word of mouth: only films critics and audiences both like get booked into more
-  // theaters, and even a sleeper hit grows to at most three times its opening count.
+  // theaters, and even a sleeper hit grows to at most two and a half times its opening count.
   const buzz = criticScore >= 60 && quality >= 55 && reception > 0.9 ? (criticScore - 58) / 100 + (quality - 55) / 100 : 0
-  const maxScreens = Math.min(3800, bookable * 3)
+  const maxScreens = Math.min(3800, Math.round(bookable * 2.5))
   let screens = bookable
   let peakScreens = bookable
   const weekly: number[] = []
