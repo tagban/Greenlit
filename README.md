@@ -4,7 +4,11 @@ A movie studio management sim, a spiritual successor to the late-90s Mac game Si
 Pitch a film, buy a script, cast it, manage the shoot, market it and sweat the opening weekend.
 Free forever, no accounts, plays offline in any browser and on phones.
 
-## Run it
+## Play it
+
+https://tagban.github.io/Greenlit/
+
+## Run it locally
 
 ```bash
 npm install
