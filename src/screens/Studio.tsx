@@ -231,7 +231,13 @@ export function Settings({ game, setGame }: Props) {
       ) : (
         <button onClick={() => setConfirm(true)}>New studio…</button>
       )}
-      <p className="muted small footer-note">Greenlit · campaign started {START_YEAR} · {CAMPAIGN_YEARS} years</p>
+      <h3>Help</h3>
+      <p className="muted small">Found something broken or have an idea? Reports go to the game’s GitHub page (a free GitHub account is needed to post).</p>
+      <div className="row">
+        <a className="button" href={`https://github.com/tagban/Greenlit/issues/new?template=bug_report.yml&version=${encodeURIComponent(__BUILD__)}`} target="_blank" rel="noopener">Report a bug</a>
+        <a className="button" href="https://github.com/tagban/Greenlit/issues/new?template=idea.yml" target="_blank" rel="noopener">Suggest an idea</a>
+      </div>
+      <p className="muted small footer-note">Greenlit · version {__BUILD__} · campaign started {START_YEAR} · {CAMPAIGN_YEARS} years</p>
     </section>
   )
 }

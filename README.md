@@ -8,6 +8,10 @@ Free forever, no accounts, plays offline in any browser and on phones.
 
 https://tagban.github.io/Greenlit/
 
+## Report a bug
+
+Use **Report a bug** in the game's Office screen, or [open an issue](https://github.com/tagban/Greenlit/issues/new/choose).
+
 ## Run it locally
 
 ```bash

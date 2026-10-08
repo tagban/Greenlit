@@ -1,0 +1,42 @@
+name: Bug report
+description: Something in Greenlit broke or looks wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping make Greenlit better! Please don't include personal information.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we make it happen again?
+      placeholder: |
+        1. Pitch a horror film
+        2. Pick the first script
+        3. ...
+  - type: dropdown
+    id: device
+    attributes:
+      label: Where were you playing?
+      options:
+        - iPhone or iPad
+        - Android phone or tablet
+        - Mac
+        - Windows PC
+        - Other
+  - type: input
+    id: version
+    attributes:
+      label: Game version
+      description: Filled in automatically when you use the in-game "Report a bug" button.
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: Drag a screenshot here if you have one.

@@ -232,3 +232,5 @@ input[type='range'] { width: 100%; accent-color: var(--accent); height: 28px; }
 .hub-head { display: flex; gap: 12px; align-items: center; }
 .logo-row { align-items: center; }
 .theme-toggle { margin-top: 12px; }
+
+a.button { display: inline-flex; align-items: center; justify-content: center; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-height: 44px; color: var(--text); text-decoration: none; }
