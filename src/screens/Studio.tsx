@@ -21,7 +21,7 @@ export function NewStudio({ onCreate, onImport }: { onCreate: (g: Game) => void;
     <div className="welcome">
       <img className="logo" src={`${import.meta.env.BASE_URL}art/logo.svg`} alt="" />
       <h1 className="wordmark">Greenlit</h1>
-      <p className="muted">Run a movie studio from a garage to the top of the box office. You have {CAMPAIGN_YEARS} years and $1M.</p>
+      <p className="muted">Run a movie studio from a garage to the top of the box office. You have {CAMPAIGN_YEARS} years, $100K in savings and a head full of pitches.</p>
       <label className="field">
         <span>Studio name</span>
         <input value={name} maxLength={32} placeholder="Unicorn Studios" onChange={(e) => setName(e.target.value)} />

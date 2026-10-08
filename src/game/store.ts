@@ -1,13 +1,13 @@
 // Game actions (pure: each takes a Game and returns a new one) plus saving and the name filter.
 
 import { RegExpMatcher, englishDataset, englishRecommendedTransformers } from 'obscenity'
-import { START_YEAR, WEEKLY_OVERHEAD } from './data'
+import { START_YEAR, overheadFor } from './data'
 import { clamp } from './rng'
 import {
   POST_WEEKS, PRINT_COST, grade, filmQuality, marketingTotal, productionCost, reshootCost, rollProductionEvents,
   simulateRelease, talentCost, type MonthSlot,
 } from './sim'
-import type { Film, Game } from './types'
+import type { Bid, Film, Game } from './types'
 import { advanceWeeks, ageTalent, campaignOver, yearOf } from './world'
 
 const SAVE_KEY = 'greenlit.save.v1'
@@ -61,18 +61,33 @@ export async function importSave(file: File): Promise<Game> {
 
 function passTime(game: Game, weeks: number): Game {
   const yearBefore = yearOf(game.week)
-  const overhead = WEEKLY_OVERHEAD + Math.round((game.debt * 0.08) / 52)
+  const overhead = overheadFor(game.reputation) + Math.round((game.debt * 0.08) / 52)
   const g = advanceWeeks(game, weeks, overhead)
   const years = yearOf(g.week) - yearBefore
   return years > 0 ? { ...g, talent: ageTalent(g, years) } : g
 }
 
-const withFilm = (game: Game, film: Film, cost = 0): Game => ({ ...game, current: film, cash: game.cash - cost })
+// Pays a cost, drawing on the backer's money first when the film has one.
+function withFilm(game: Game, film: Film, cost = 0): Game {
+  const f = film.financing
+  if (f && cost > 0) {
+    const draw = Math.min(cost, f.cap - f.used)
+    film = { ...film, financing: { ...f, used: f.used + draw } }
+    cost -= draw
+  }
+  return { ...game, current: film, cash: game.cash - cost }
+}
+
+export const backerLeft = (film: Film) => (film.financing ? film.financing.cap - film.financing.used : 0)
 
 // ---------- Film pipeline ----------
 
 export function canStartFilm(game: Game) {
   return !game.current && !campaignOver(game.week)
+}
+
+export function acceptFinancing(game: Game, film: Film, bid: Bid | undefined): Game {
+  return withFilm(game, { ...film, financing: bid ? { ...bid, used: 0 } : undefined, stage: 'script' })
 }
 
 export function chooseScript(game: Game, film: Film, offerId: string, offers: { id: string; cost: number }[]): Game {
@@ -93,18 +108,21 @@ export function startProduction(game: Game, film: Film): Game {
   return withFilm(game, { ...film, events, costs: { ...film.costs, production: cost }, stage: 'production' }, cost)
 }
 
+// Choices on set can be changed freely; their costs are charged when production wraps.
 export function resolveEvent(game: Game, film: Film, index: number, choice: number): Game {
-  const event = film.events[index]
-  if (!event || event.chosen !== undefined) return game
-  const cost = event.choices[choice].cost
+  if (!film.events[index]) return game
   const events = film.events.map((e, i) => (i === index ? { ...e, chosen: choice } : e))
-  return withFilm(game, { ...film, events, costs: { ...film.costs, events: film.costs.events + cost } }, cost)
+  return withFilm(game, { ...film, events })
 }
 
+export const eventCosts = (film: Film) => film.events.reduce((s, e) => s + (e.chosen === undefined ? 0 : e.choices[e.chosen].cost), 0)
+
 export function wrapProduction(game: Game, film: Film): Game {
+  const cost = eventCosts(film)
   const { quality } = filmQuality(film, game.talent)
   const testScore = grade(quality + (((film.seed % 13) - 6) | 0))
-  return passTime(withFilm(game, { ...film, testScore, stage: 'post' }), film.shootWeeks)
+  const next = { ...film, testScore, costs: { ...film.costs, events: cost }, stage: 'post' as const }
+  return passTime(withFilm(game, next, cost), film.shootWeeks)
 }
 
 export function finishPost(game: Game, film: Film, reshoot: boolean): Game {
@@ -120,8 +138,9 @@ export function releaseFilm(game: Game, film: Film, slot: MonthSlot): Game {
   let g = withFilm(game, costed, marketing + prints)
   const targetWeek = (slot.year - START_YEAR) * 52 + Math.round((slot.month * 52) / 12)
   g = passTime(g, Math.max(0, targetWeek - g.week))
-  const result = simulateRelease(g, costed, slot)
-  const done: Film = { ...costed, result, stage: 'results' }
+  const paid = g.current!
+  const result = simulateRelease(g, paid, slot)
+  const done: Film = { ...paid, result, stage: 'results' }
   const hired = new Set([film.directorId, film.composerId, ...film.leadIds, ...film.supportIds])
   const firm = film.events.some((e) => e.title.includes('trailer') && e.chosen === 1)
   const happy = result.profit > 0 || result.quality >= 60
@@ -136,7 +155,7 @@ export function releaseFilm(game: Game, film: Film, slot: MonthSlot): Game {
   return {
     ...g,
     talent,
-    cash: g.cash + result.studioRevenue + result.ancillary,
+    cash: g.cash + result.studioRevenue + result.ancillary - result.partnerCut,
     reputation: clamp(Math.round(g.reputation + repDelta), 0, 100),
     current: done,
   }

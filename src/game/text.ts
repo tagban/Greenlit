@@ -34,12 +34,17 @@ export function starsFor(score: number) {
 }
 
 export function reviewFilm(film: Film, quality: number, trend: number, scores: Record<Dept, number>, rng: Rng): { reviews: Review[]; criticScore: number } {
+  const used = new Set<string>()
   const reviews: Review[] = CRITICS.map((c) => {
     let score = quality + (c.bias[film.genre] ?? 0) + c.harsh + rng.normal(0, 6)
     if (c.parodyFan && film.subgenre === 'parody') score += trend >= 1.2 ? 12 : trend < 0.9 ? -10 : 4
     score = clamp(score, 2, 99)
     const stars = starsFor(score)
-    return { critic: c.name, outlet: c.outlet, persona: c.persona, stars, quote: writeQuote(film, score, c.persona, c.parodyFan ?? false, trend, scores, rng) }
+    // Critics shouldn't sound identical: re-draw a repeated line a few times.
+    let quote = ''
+    for (let tries = 0; tries < 5 && (!quote || used.has(quote)); tries++) quote = writeQuote(film, score, c.persona, c.parodyFan ?? false, trend, scores, rng)
+    used.add(quote)
+    return { critic: c.name, outlet: c.outlet, persona: c.persona, stars, quote }
   })
   const criticScore = Math.round(reviews.reduce((s, r) => s + r.stars * 25, 0) / reviews.length)
   return { reviews, criticScore }
@@ -83,7 +88,7 @@ export function writeHeadline(film: Film, r: FilmResult, rng: Rng, cappedScreens
   if (r.opening > 10_000_000) return rng.pick([`${t} opens strong with ${money(r.opening)}`, `Audiences turn out for ${t}: ${money(r.opening)}`])
   if (r.domestic > r.totalCost * 1.5) return rng.pick([`Sleeper hit: ${t} keeps selling tickets`, `Small film, big returns: ${t} earns ${money(r.domestic)}`])
   if (cappedScreens) return `Theaters balk at ${t}; only ${cappedScreens.toLocaleString()} screens booked`
-  if (r.opening > 2_000_000) return rng.pick([`${t} finds a modest crowd: ${money(r.opening)}`, `${t} opens to ${money(r.opening)}`])
+  if (r.opening > 2_000_000 || r.profit > 0) return rng.pick([`${t} finds a modest crowd: ${money(r.opening)}`, `${t} opens to ${money(r.opening)}`])
   return rng.pick([`${t} barely registers at the box office`, `Crickets for ${t}: ${money(r.opening)} opening`])
 }
 

@@ -1,16 +1,24 @@
 // Headless balance check: plays sample films with different strategies and prints outcomes.
 // Run with: npx tsx scripts/balance.ts
 import { newGame, talentFee, willWork } from '../src/game/world'
-import { newFilm, scriptOffers, releaseCalendar } from '../src/game/sim'
-import { chooseScript, confirmCast, startProduction, resolveEvent, wrapProduction, finishPost, releaseFilm, closeFilm } from '../src/game/store'
+import { newFilm, scriptOffers, releaseCalendar, backerBids, pitchScore } from '../src/game/sim'
+import { acceptFinancing, chooseScript, confirmCast, startProduction, resolveEvent, wrapProduction, finishPost, releaseFilm, closeFilm } from '../src/game/store'
 import { money } from '../src/game/text'
 import type { Game, Film } from '../src/game/types'
-import type { GenreId } from '../src/game/data'
+import { subgenreById, type GenreId } from '../src/game/data'
+const require_keywords = (id: string) => subgenreById(id)!.keywords.slice(0, 2).join(' and ')
 
 type Plan = { name: string; genre: GenreId; sub?: string; script: number; star: 'cheap' | 'best'; tech: number; music: number; mkt: number; screens: number }
 
 function play(game: Game, plan: Plan): Game {
-  let g: Game = { ...game, current: { ...newFilm(game), title: plan.name, genre: plan.genre, subgenre: plan.sub, logline: 'test' } }
+  const sub = plan.sub ? require_keywords(plan.sub) : ''
+  let g: Game = { ...game, current: { ...newFilm(game), title: plan.name, genre: plan.genre, subgenre: plan.sub, logline: `A story about ${sub} that nobody will forget, told with heart and nerve.` } }
+  const bids = backerBids(g, g.current!).filter((b) => b.cap > 0)
+  const self = g.cash > 1_500_000
+  const bid = self ? undefined : bids[0]
+  if (!self && !bid) { console.log(`${plan.name.padEnd(22)} no backers (pitch ${pitchScore(g, g.current!).score})`); return { ...g, current: undefined } }
+  g = acceptFinancing(g, g.current!, bid)
+  const deal = bid ? `${bid.backer.split(' ')[0]} ${money(bid.cap)}@${Math.round(bid.share * 100)}%` : 'self'
   const offers = scriptOffers(g, g.current!)
   g = chooseScript(g, g.current!, offers[plan.script].id, offers)
   const avail = (role: string) => g.talent.filter((t) => t.role === role && willWork(t, g.reputation))
@@ -29,7 +37,7 @@ function play(game: Game, plan: Plan): Game {
   const cashBefore = g.cash
   g = releaseFilm(g, film, slot)
   const r = g.current!.result!
-  console.log(`${plan.name.padEnd(22)} Q${String(r.quality).padStart(3)} crit ${String(r.criticScore).padStart(3)}% hype ${r.hype.toFixed(2)} open ${money(r.opening).padStart(7)} dom ${money(r.domestic).padStart(7)} cost ${money(r.totalCost).padStart(7)} profit ${money(r.profit).padStart(7)} | cash ${money(cashBefore)}→${money(g.cash)} rep ${g.reputation}`)
+  console.log(`${plan.name.padEnd(14)} ${deal.padEnd(22)} Q${String(r.quality).padStart(3)} crit ${String(r.criticScore).padStart(3)}% hype ${r.hype.toFixed(2)} open ${money(r.opening).padStart(7)} dom ${money(r.domestic).padStart(7)} cost ${money(r.totalCost).padStart(7)} profit ${money(r.profit).padStart(7)} | cash ${money(cashBefore)}→${money(g.cash)} rep ${g.reputation}`)
   return closeFilm(g)
 }
 
@@ -46,4 +54,4 @@ for (let run = 0; run < 3; run++) {
 }
 console.log('--- career: 8 cheap horrors in a row')
 let g = newGame('Career', 'Bot')
-for (let i = 0; i < 8; i++) g = play(g, { ...plans[0], name: `Horror ${i + 1}`, tech: Math.min(600_000, Math.max(200_000, g.cash * 0.3)), mkt: Math.max(100_000, g.cash * 0.2), screens: g.cash > 3e6 ? 1200 : 400 })
+for (let i = 0; i < 10; i++) g = play(g, { ...plans[0], name: `Horror ${i + 1}`, tech: 300_000, mkt: 150_000, screens: 400 })

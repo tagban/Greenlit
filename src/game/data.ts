@@ -186,5 +186,32 @@ export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', '
 
 export const START_YEAR = 2000
 export const CAMPAIGN_YEARS = 30
-export const START_CASH = 1_000_000
-export const WEEKLY_OVERHEAD = 4_000
+export const START_CASH = 100_000
+// Weekly overhead grows with the studio: a garage costs little, a major's lot costs a lot.
+export const overheadFor = (reputation: number) => 1_000 + reputation * 150
+
+// Fictional backers who bid on your pitch. Each has its own taste:
+// - minRep: majors won't take a meeting with an unknown studio
+// - taste: interest bonus or penalty by genre
+// - indie: extra interest in small studios and personal films (the Miramax-style label)
+// - pockets / maxCap: how much they will put in
+// - greed: added to the share of revenue they take
+export type Backer = {
+  name: string
+  minRep: number
+  taste: Partial<Record<GenreId, number>>
+  indie: number
+  pockets: number
+  maxCap: number
+  greed: number
+  style: string
+}
+
+export const BACKERS: Backer[] = [
+  { name: 'Paragon Pictures', minRep: 40, taste: { action: 15, scifi: 12, drama: -10, romance: -8 }, indie: -10, pockets: 2.5, maxCap: 150_000_000, greed: 0.04, style: 'A major. Wants four-quadrant spectacle and proven studios.' },
+  { name: 'Starlight Studios', minRep: 30, taste: { comedy: 12, romance: 12, horror: -12 }, indie: -5, pockets: 1.8, maxCap: 80_000_000, greed: 0.02, style: 'A major built on crowd-pleasers and date-night movies.' },
+  { name: 'Crescent Media', minRep: 15, taste: { drama: 15, romance: 5, action: -10, horror: -10 }, indie: 5, pockets: 1.1, maxCap: 30_000_000, greed: 0, style: 'Prestige pictures and awards bait.' },
+  { name: 'Larkspur Films', minRep: 0, taste: { drama: 10, comedy: 8, romance: 6, action: -12, scifi: -8 }, indie: 15, pockets: 0.8, maxCap: 3_000_000, greed: -0.03, style: 'An indie label that loves first-time filmmakers and small, personal stories.' },
+  { name: 'Nightjar Releasing', minRep: 0, taste: { horror: 18, scifi: 6, romance: -12, drama: -6 }, indie: 8, pockets: 0.7, maxCap: 5_000_000, greed: 0.02, style: 'A scrappy genre label. Small checks, quick decisions.' },
+  { name: 'Ironbridge Entertainment', minRep: 0, taste: {}, indie: 0, pockets: 0.9, maxCap: 20_000_000, greed: 0.1, style: 'Will fund almost anything. Drives a hard bargain.' },
+]

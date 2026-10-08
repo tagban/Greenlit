@@ -141,6 +141,7 @@ input[type='range'] { width: 100%; accent-color: var(--accent); height: 28px; }
 .choices { display: grid; gap: 8px; }
 .choices button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
 .choices button span { font-size: 0.85rem; color: var(--muted); }
+.choices button.selected { border-color: var(--accent); background: #13261c; }
 .grade { color: var(--gold); font-size: 1.2rem; }
 
 .months { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
@@ -184,3 +185,7 @@ input[type='range'] { width: 100%; accent-color: var(--accent); height: 28px; }
 .wordmark { font-size: 2.6rem; color: var(--accent); margin: 4px 0; letter-spacing: -0.02em; }
 .import { display: inline-block; margin-top: 18px; }
 .footer-note { margin-top: 30px; text-align: center; }
+
+.logline { font-style: italic; color: #d9dce3; }
+.pass { background: var(--panel); border-radius: 12px; padding: 10px 12px; opacity: 0.75; display: flex; flex-direction: column; gap: 2px; }
+.flow .poster-small { max-width: 120px; }

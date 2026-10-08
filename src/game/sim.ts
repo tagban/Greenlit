@@ -1,7 +1,7 @@
-import { DEPTS, GENRES, MONTHS, RIVAL_STUDIOS, RIVAL_TITLE_A, RIVAL_TITLE_B, SUBGENRES, subgenreById, type Dept, type Weights } from './data'
+import { BACKERS, DEPTS, GENRES, MONTHS, RIVAL_STUDIOS, RIVAL_TITLE_A, RIVAL_TITLE_B, SUBGENRES, subgenreById, type Dept, type Weights } from './data'
 import { clamp, hashSeed, makeRng } from './rng'
 import { reviewFilm, writeBreakdown, writeHeadline } from './text'
-import type { Film, FilmResult, Game, ProductionEvent, ScriptOffer, Talent } from './types'
+import type { Bid, Film, FilmResult, Game, ProductionEvent, ScriptOffer, Talent } from './types'
 import { monthOf, talentFee, yearOf } from './world'
 
 export const SCREEN_OPTIONS = [
@@ -41,6 +41,48 @@ export function newFilm(game: Game): Film {
     costs: { script: 0, talent: 0, production: 0, events: 0, post: 0, marketing: 0, prints: 0 },
     stage: 'pitch',
   }
+}
+
+// ---------- Pitch and financing ----------
+
+export function pitchScore(game: Game, film: Film): { score: number; notes: string[] } {
+  const notes: string[] = []
+  const trend = trendFor(game, film)
+  const trendPts = clamp((trend - 0.6) / 0.9, 0, 1) * 35
+  const sub = subgenreById(film.subgenre)
+  const label = film.subgenre === 'parody' ? `Spoofing ${subgenreById(film.parodyTarget)?.name ?? 'that'}` : sub?.name ?? `General ${GENRES[film.genre].name.toLowerCase()}`
+  if (trend >= 1.2) notes.push(`${label} is hot right now. Backers are excited.`)
+  else if (trend < 0.85) notes.push(`${label} is out of fashion. Backers are nervous.`)
+  else notes.push(`${label} is a steady seller.`)
+  const text = film.logline.toLowerCase()
+  const matches = sub ? sub.keywords.filter((k) => text.includes(k)).length : 0
+  const hot = text.includes(game.hotKeyword)
+  const keywordPts = Math.min(2, matches) * 8 + (hot ? 10 : 0)
+  if (hot) notes.push(`Your logline has this year’s buzzword, “${game.hotKeyword}”.`)
+  if (matches) notes.push(`The logline sells the ${sub!.name.toLowerCase()} hook.`)
+  else if (sub) notes.push(`The logline doesn’t sound like a ${sub.name.toLowerCase()}. Try words like “${sub.keywords[0]}” or “${sub.keywords[1]}”.`)
+  const len = film.logline.trim().length
+  const effortPts = len >= 60 ? 8 : len >= 25 ? 4 : 0
+  if (len < 25) notes.push('The logline is too thin to sell anyone.')
+  const repPts = game.reputation * 0.3
+  if (game.reputation < 20) notes.push('Nobody knows your studio yet, so offers are small.')
+  return { score: Math.round(clamp(trendPts + keywordPts + effortPts + repPts, 0, 100)), notes }
+}
+
+export function backerBids(game: Game, film: Film): Bid[] {
+  const rng = makeRng(hashSeed(film.seed, 'bids'))
+  const { score } = pitchScore(game, film)
+  const small = clamp((40 - game.reputation) / 40, 0, 1) // how "indie" this studio still is
+  return BACKERS.map((b) => {
+    const pass = (reason: string) => ({ backer: b.name, cap: 0, share: 0, blurb: b.style, reason })
+    if (game.reputation < b.minRep) return pass('Won’t take a meeting with a studio your size yet.')
+    const interest = score + (b.taste[film.genre] ?? 0) + b.indie * small + rng.normal(0, 7)
+    if (interest < 30) return pass(rng.pick(['Passed. “Not for us.”', 'Passed. They didn’t see an audience for it.', 'Passed after a polite meeting.']))
+    const base = (450_000 + game.reputation * 80_000) * b.pockets
+    const cap = Math.round(Math.min(b.maxCap, base * Math.pow(interest / 50, 2)) / 10_000) * 10_000
+    const share = Number(clamp(0.8 - interest / 250 + b.greed, 0.35, 0.8).toFixed(2))
+    return { backer: b.name, cap, share, blurb: b.style }
+  }).sort((a, b) => b.cap - a.cap)
 }
 
 // ---------- Scripts ----------
@@ -291,6 +333,8 @@ export function simulateRelease(game: Game, film: Film, slot: MonthSlot): FilmRe
   const studioRevenue = Math.round(domestic * 0.5)
   const ancillary = Math.round(domestic * (0.3 + (0.4 * quality) / 100) * intl)
   const cost = totalCost(film)
+  const funded = film.financing?.used ?? 0
+  const partnerCut = Math.round((studioRevenue + ancillary) * (film.financing?.share ?? 0))
   const result: FilmResult = {
     quality,
     deptScores: scores,
@@ -301,7 +345,9 @@ export function simulateRelease(game: Game, film: Film, slot: MonthSlot): FilmRe
     ancillary,
     studioRevenue,
     totalCost: cost,
-    profit: studioRevenue + ancillary - cost,
+    profit: studioRevenue + ancillary - partnerCut - (cost - funded),
+    funded,
+    partnerCut,
     reviews,
     criticScore,
     peakScreens,

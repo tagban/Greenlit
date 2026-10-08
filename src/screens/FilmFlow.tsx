@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { DEPTS, DEPT_LABEL, GENRES, GENRE_IDS, SUBGENRES, subgenreById, type GenreId } from '../game/data'
 import {
-  CREW_WEEKLY, MUSIC_SCALE, PRINT_COST, SCREEN_OPTIONS, TECH_SCALE, computeHype, deptScores, filmWeights, marketingTotal, monthLabel, normalShoot, productionCost,
+  CREW_WEEKLY, MUSIC_SCALE, backerBids, pitchScore, PRINT_COST, SCREEN_OPTIONS, TECH_SCALE, computeHype, deptScores, filmWeights, marketingTotal, monthLabel, normalShoot, productionCost,
   releaseCalendar, reshootCost, scriptOffers, talentCost, trendFor,
 } from '../game/sim'
 import {
-  LOAN_LIMIT, LOAN_STEP, chooseScript, closeFilm, confirmCast, finishPost, isClean, releaseFilm, resolveEvent,
+  LOAN_LIMIT, LOAN_STEP, acceptFinancing, backerLeft, chooseScript, eventCosts, closeFilm, confirmCast, finishPost, isClean, releaseFilm, resolveEvent,
   startProduction, takeLoan, wrapProduction,
 } from '../game/store'
 import { money } from '../game/text'
@@ -20,6 +20,7 @@ export default function FilmFlow({ game, setGame }: Props) {
   const update = (patch: Partial<Film>) => setGame({ ...game, current: { ...film, ...patch } })
   const step = {
     pitch: <Pitch film={film} game={game} update={update} />,
+    financing: <Financing film={film} game={game} setGame={setGame} update={update} />,
     script: <Script film={film} game={game} setGame={setGame} />,
     cast: <Cast film={film} game={game} setGame={setGame} update={update} />,
     budget: <Budget film={film} game={game} setGame={setGame} update={update} />,
@@ -37,22 +38,27 @@ export default function FilmFlow({ game, setGame }: Props) {
   )
 }
 
+// Money available for this film: the backer's remaining funds first, then the studio's cash.
+const fundsOf = (game: Game) => game.cash + (game.current ? backerLeft(game.current) : 0)
+
 function CashBar({ game, need }: { game: Game; need: number }) {
-  const short = need > game.cash
+  const funds = fundsOf(game)
+  const backer = game.current ? backerLeft(game.current) : 0
   return (
-    <div className={`cashbar${short ? ' short' : ''}`}>
+    <div className={`cashbar${need > funds ? ' short' : ''}`}>
       <span>Cost {money(need)}</span>
-      <span>Cash {money(game.cash)}</span>
+      <span>{backer > 0 ? `Backer ${money(backer)} + yours ${money(game.cash)}` : `Cash ${money(game.cash)}`}</span>
     </div>
   )
 }
 
 function LoanHint({ game, setGame, need }: { game: Game; setGame: (g: Game) => void; need: number }) {
-  if (need <= game.cash) return null
+  const funds = fundsOf(game)
+  if (need <= funds) return null
   const canBorrow = game.debt + LOAN_STEP <= LOAN_LIMIT
   return (
     <div className="callout bad">
-      You’re {money(need - game.cash)} short.{' '}
+      You’re {money(need - funds)} short.{' '}
       {canBorrow ? (
         <button className="link" onClick={() => setGame(takeLoan(game))}>Borrow {money(LOAN_STEP)} from the bank (8% a year)</button>
       ) : (
@@ -116,12 +122,66 @@ function Pitch({ film, game, update }: { film: Film; game: Game; update: (p: Par
         <textarea rows={3} maxLength={200} value={film.logline} placeholder="A retired detective must solve one last case…" onChange={(e) => update({ logline: e.target.value })} />
         <em>Buzzword this year: “{game.hotKeyword}”. Audiences are hearing it everywhere.</em>
       </label>
-      <button className="primary" disabled={!ready} onClick={() => update({ title: film.title.trim(), stage: 'script' })}>Find a script</button>
+      <button className="primary" disabled={!ready} onClick={() => update({ title: film.title.trim(), stage: 'financing' })}>Pitch it to backers</button>
     </section>
   )
 }
 
-// ---------- 2. Script ----------
+// ---------- 2. Financing ----------
+
+function Financing({ film, game, setGame, update }: Props & { film: Film; update: (p: Partial<Film>) => void }) {
+  const { score, notes } = pitchScore(game, film)
+  const bids = backerBids(game, film)
+  const offers = bids.filter((b) => b.cap > 0)
+  const passes = bids.filter((b) => b.cap === 0)
+  return (
+    <section>
+      <h1>Pitch meeting</h1>
+      <Poster genre={film.genre} title={film.title} sub={film.logline ? undefined : 'No logline'} small />
+      <p className="logline">“{film.logline || 'No logline yet.'}”</p>
+      <div className="dept">
+        <div className="dept-head"><span>Pitch strength</span><span className="muted">{score}/100</span></div>
+        <Meter value={score} tone={score >= 60 ? 'good' : score < 35 ? 'bad' : undefined} />
+      </div>
+      <ul className="breakdown">{notes.map((n, i) => <li key={i}>{n}</li>)}</ul>
+      <h3>Offers</h3>
+      {offers.length === 0 && <div className="callout bad">Nobody bit. Rework the pitch: a trendier sub-genre or a punchier logline.</div>}
+      <div className="list">
+        {offers.map((b) => (
+          <button key={b.backer} className="offer" onClick={() => setGame(acceptFinancing(game, film, b))}>
+            <div className="offer-body">
+              <div className="offer-title">{b.backer}</div>
+              <div className="muted small">{b.blurb}</div>
+              <div className="small">Covers up to <strong>{money(b.cap)}</strong> of costs · takes <strong>{Math.round(b.share * 100)}%</strong> of revenue</div>
+            </div>
+          </button>
+        ))}
+      </div>
+      {passes.length > 0 && (
+        <>
+          <h3>Passed</h3>
+          <div className="list">
+            {passes.map((b) => (
+              <div key={b.backer} className="pass"><strong>{b.backer}</strong> <span className="muted small">{b.reason}</span></div>
+            ))}
+          </div>
+        </>
+      )}
+      <div className="choices" style={{ marginTop: 16 }}>
+        <button onClick={() => setGame(acceptFinancing(game, film, undefined))}>
+          <strong>Self-finance</strong>
+          <span>Pay everything from your {money(game.cash)} and keep 100% of the revenue.</span>
+        </button>
+        <button onClick={() => update({ stage: 'pitch' })}>
+          <strong>Rework the pitch</strong>
+          <span>Change the sub-genre or logline and pitch again.</span>
+        </button>
+      </div>
+    </section>
+  )
+}
+
+// ---------- 3. Script ----------
 
 function Script({ film, game, setGame }: Props & { film: Film }) {
   const offers = useMemo(() => scriptOffers(game, film), [game, film])
@@ -132,7 +192,7 @@ function Script({ film, game, setGame }: Props & { film: Film }) {
       <p className="tip">The script sets the ceiling for the film. Reader coverage is a rough guide, not a guarantee.</p>
       <div className="list">
         {offers.map((o) => (
-          <button key={o.id} className="offer" disabled={o.cost > game.cash} onClick={() => setGame(chooseScript(game, film, o.id, offers))}>
+          <button key={o.id} className="offer" disabled={o.cost > fundsOf(game)} onClick={() => setGame(chooseScript(game, film, o.id, offers))}>
             <div className="offer-grade">{o.coverage}</div>
             <div className="offer-body">
               <div className="offer-title">{sourceText[o.source]}</div>
@@ -177,7 +237,7 @@ function Cast({ film, game, setGame, update }: Props & { film: Film; update: (p:
     if (fit < 40) return `Rarely does ${GENRES[film.genre].name.toLowerCase()}`
     return t.temperament > 70 ? 'Known to be difficult on set' : undefined
   }
-  const ready = film.directorId && film.leadIds.length > 0 && cost <= game.cash
+  const ready = film.directorId && film.leadIds.length > 0 && cost <= fundsOf(game)
   const tabs: [Slot, string][] = [['directorId', 'Director'], ['leadIds', 'Leads'], ['supportIds', 'Support'], ['composerId', 'Composer']]
   return (
     <section>
@@ -238,11 +298,11 @@ function Budget({ film, game, setGame, update }: Props & { film: Film; update: (
       </div>
       <label className="field">
         <span>Effects, sets and costumes: {money(film.techBudget)}</span>
-        <input type="range" min={0} max={sliderMax(TECH_SCALE[film.genre] * 3, game.cash)} step={5_000} value={film.techBudget} onChange={(e) => update({ techBudget: Number(e.target.value) })} />
+        <input type="range" min={0} max={sliderMax(TECH_SCALE[film.genre] * 3, fundsOf(game))} step={5_000} value={film.techBudget} onChange={(e) => update({ techBudget: Number(e.target.value) })} />
       </label>
       <label className="field">
         <span>Music and sound: {money(film.musicBudget)}</span>
-        <input type="range" min={0} max={sliderMax(MUSIC_SCALE * 3, game.cash)} step={5_000} value={film.musicBudget} onChange={(e) => update({ musicBudget: Number(e.target.value) })} />
+        <input type="range" min={0} max={sliderMax(MUSIC_SCALE * 3, fundsOf(game))} step={5_000} value={film.musicBudget} onChange={(e) => update({ musicBudget: Number(e.target.value) })} />
       </label>
       <label className="field">
         <span>Shooting schedule: {film.shootWeeks} weeks {film.shootWeeks < norm ? '(rushed)' : film.shootWeeks > norm ? '(generous)' : '(normal)'}</span>
@@ -252,7 +312,7 @@ function Budget({ film, game, setGame, update }: Props & { film: Film; update: (
       <div className="sticky-footer">
         <CashBar game={game} need={cost} />
         <LoanHint game={game} setGame={setGame} need={cost} />
-        <button className="primary" disabled={cost > game.cash} onClick={() => setGame(startProduction(game, film))}>Start shooting</button>
+        <button className="primary" disabled={cost > fundsOf(game)} onClick={() => setGame(startProduction(game, film))}>Start shooting</button>
       </div>
     </section>
   )
@@ -262,37 +322,34 @@ function Budget({ film, game, setGame, update }: Props & { film: Film; update: (
 
 function Production({ film, game, setGame }: Props & { film: Film }) {
   const open = film.events.findIndex((e) => e.chosen === undefined)
+  const cost = eventCosts(film)
   return (
     <section>
       <h1>On set: “{film.title}”</h1>
       {film.events.length === 0 && <div className="callout good">A smooth shoot. Everyone went home on time.</div>}
+      {film.events.length > 0 && <p className="tip">You can change any decision until you call “That’s a wrap”.</p>}
       <div className="list">
         {film.events.slice(0, open === -1 ? undefined : open + 1).map((e, i) => (
           <div key={i} className={`event${i === open ? ' active' : ''}`}>
             <div className="muted">Week {e.week}</div>
             <h3>{e.title}</h3>
             <p>{e.text}</p>
-            {e.chosen === undefined ? (
-              i === open && (
-                <div className="choices">
-                  {e.choices.map((c, ci) => (
-                    <button key={ci} onClick={() => setGame(resolveEvent(game, film, i, ci))}>
-                      <strong>{c.label}</strong>
-                      <span>{c.cost ? money(c.cost) : 'Free'} · {c.note}</span>
-                    </button>
-                  ))}
-                </div>
-              )
-            ) : (
-              <div className="muted">You chose: {e.choices[e.chosen].label}</div>
-            )}
+            <div className="choices">
+              {e.choices.map((c, ci) => (
+                <button key={ci} className={e.chosen === ci ? 'selected' : ''} onClick={() => setGame(resolveEvent(game, film, i, ci))}>
+                  <strong>{e.chosen === ci ? '✓ ' : ''}{c.label}</strong>
+                  <span>{c.cost ? money(c.cost) : 'Free'} · {c.note}</span>
+                </button>
+              ))}
+            </div>
           </div>
         ))}
       </div>
       {open === -1 && (
         <div className="sticky-footer">
-          <div className="cashbar"><span>Cash {money(game.cash)}</span></div>
-          <button className="primary" onClick={() => setGame(wrapProduction(game, film))}>That’s a wrap</button>
+          <CashBar game={game} need={cost} />
+          <LoanHint game={game} setGame={setGame} need={cost} />
+          <button className="primary" disabled={cost > fundsOf(game)} onClick={() => setGame(wrapProduction(game, film))}>That’s a wrap</button>
         </div>
       )}
     </section>
@@ -311,7 +368,7 @@ function Post({ film, game, setGame }: Props & { film: Film }) {
       </div>
       <p className="tip">Reshoots can rescue a shaky cut. They cost about 15% of the production budget.</p>
       <div className="choices">
-        <button disabled={cost > game.cash} title={cost > game.cash ? 'Not enough cash' : undefined} onClick={() => setGame(finishPost(game, film, true))}>
+        <button disabled={cost > fundsOf(game)} title={cost > fundsOf(game) ? 'Not enough cash' : undefined} onClick={() => setGame(finishPost(game, film, true))}>
           <strong>Order reshoots</strong>
           <span>{money(cost)} · Fix the weakest scenes</span>
         </button>
@@ -376,7 +433,7 @@ function Release({ film, game, setGame, update }: Props & { film: Film; update: 
       <div className="sticky-footer">
         <CashBar game={game} need={cost} />
         <LoanHint game={game} setGame={setGame} need={cost} />
-        <button className="primary" disabled={cost > game.cash} onClick={() => setGame(releaseFilm(game, film, slot))}>Release in {monthLabel(slot)}</button>
+        <button className="primary" disabled={cost > fundsOf(game)} onClick={() => setGame(releaseFilm(game, film, slot))}>Release in {monthLabel(slot)}</button>
       </div>
     </section>
   )
@@ -423,7 +480,9 @@ function Results({ film, game, setGame }: Props & { film: Film }) {
       <div className="ledger">
         <div><span>Studio share of domestic</span><span>{money(r.studioRevenue)}</span></div>
         <div><span>International, video and TV</span><span>{money(r.ancillary)}</span></div>
+        {film.financing && <div><span>{film.financing.backer}’s share ({Math.round(film.financing.share * 100)}%)</span><span>-{money(r.partnerCut)}</span></div>}
         <div><span>Total cost</span><span>-{money(r.totalCost)}</span></div>
+        {r.funded > 0 && <div><span>Paid by {film.financing!.backer}</span><span>+{money(r.funded)}</span></div>}
         <div className="total"><span>Profit</span><span className={r.profit >= 0 ? 'good' : 'bad'}>{money(r.profit)}</span></div>
       </div>
       <button className="primary" onClick={() => setGame(closeFilm(game))}>Back to the studio</button>

@@ -63,7 +63,7 @@ export function Stat({ label, value, tone }: { label: string; value: ReactNode; 
 }
 
 export function Steps({ stage }: { stage: string }) {
-  const steps = ['pitch', 'script', 'cast', 'budget', 'production', 'post', 'release', 'results']
+  const steps = ['pitch', 'financing', 'script', 'cast', 'budget', 'production', 'post', 'release', 'results']
   const at = steps.indexOf(stage)
   return (
     <div className="steps" aria-label={`Step ${at + 1} of ${steps.length}`}>

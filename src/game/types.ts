@@ -33,6 +33,9 @@ export type ProductionEvent = {
   chosen?: number
 }
 
+export type Bid = { backer: string; cap: number; share: number; blurb: string; reason?: string }
+export type Financing = Bid & { used: number }
+
 export type Marketing = { tv: number; print: number; web: number; trailer: number }
 
 export type ReleasePlan = { monthOffset: number; screens: number }
@@ -50,6 +53,8 @@ export type FilmResult = {
   studioRevenue: number
   totalCost: number
   profit: number
+  funded: number // costs the backer paid
+  partnerCut: number // backer's share of revenue
   reviews: Review[]
   criticScore: number // 0..100
   peakScreens: number
@@ -67,6 +72,7 @@ export type Film = {
   genre: GenreId
   subgenre?: string
   parodyTarget?: string
+  financing?: Financing
   script?: ScriptOffer
   directorId?: string
   leadIds: string[]
@@ -82,7 +88,7 @@ export type Film = {
   release: ReleasePlan
   costs: { script: number; talent: number; production: number; events: number; post: number; marketing: number; prints: number }
   result?: FilmResult
-  stage: 'pitch' | 'script' | 'cast' | 'budget' | 'production' | 'post' | 'release' | 'results' | 'done'
+  stage: 'pitch' | 'financing' | 'script' | 'cast' | 'budget' | 'production' | 'post' | 'release' | 'results' | 'done'
 }
 
 export type Studio = {
