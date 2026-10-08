@@ -6,12 +6,12 @@ import {
 } from '../game/sim'
 import {
   LOAN_LIMIT, LOAN_STEP, acceptFinancing, backerLeft, chooseScript, eventCosts, closeFilm, confirmCast, finishPost, isClean, releaseFilm, resolveEvent,
-  startProduction, takeLoan, wrapProduction,
+  setPoster, startProduction, takeLoan, wrapProduction,
 } from '../game/store'
 import { money } from '../game/text'
 import type { Film, Game, Talent } from '../game/types'
 import { willWork } from '../game/world'
-import { Meter, Poster, Stat, Steps, TalentCard, trendLabel } from '../ui'
+import { ImageUpload, Meter, Poster, ShareButton, Stat, Steps, TalentCard, trendLabel } from '../ui'
 
 type Props = { game: Game; setGame: (g: Game) => void }
 
@@ -137,7 +137,7 @@ function Financing({ film, game, setGame, update }: Props & { film: Film; update
   return (
     <section>
       <h1>Pitch meeting</h1>
-      <Poster genre={film.genre} title={film.title} sub={film.logline ? undefined : 'No logline'} small />
+      <Poster genre={film.genre} posterId={film.posterId} title={film.title} small />
       <p className="logline">“{film.logline || 'No logline yet.'}”</p>
       <div className="dept">
         <div className="dept-head"><span>Pitch strength</span><span className="muted">{score}/100</span></div>
@@ -447,7 +447,11 @@ function Results({ film, game, setGame }: Props & { film: Film }) {
   const sub = subgenreById(film.subgenre)
   return (
     <section>
-      <Poster genre={film.genre} title={film.title} sub={`${game.studio.name} · ${sub?.name ?? GENRES[film.genre].name}`} />
+      <Poster genre={film.genre} posterId={film.posterId} title={film.title} sub={`${game.studio.name} · ${sub?.name ?? GENRES[film.genre].name}`} />
+      <div className="row poster-actions">
+        <ImageUpload label={film.posterId ? 'Change poster' : 'Upload your poster'} width={600} height={900} onDone={(id) => setGame(setPoster(game, film.id, id))} />
+        <ShareButton game={game} film={film} />
+      </div>
       <h2 className="headline">{r.headline}</h2>
       <div className="stats">
         <Stat label="Opening" value={money(r.opening)} />

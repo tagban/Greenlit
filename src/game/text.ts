@@ -51,7 +51,9 @@ export function reviewFilm(film: Film, quality: number, trend: number, scores: R
 }
 
 function writeQuote(film: Film, score: number, persona: string, parodyFan: boolean, trend: number, scores: Record<Dept, number>, rng: Rng): string {
-  const tier = score < 35 ? 0 : score < 55 ? 1 : score < 75 ? 2 : 3
+  // Tone follows the star rating so the words never contradict the stars.
+  const stars = starsFor(score)
+  const tier = stars <= 1.5 ? 0 : stars <= 2 ? 1 : stars <= 3 ? 2 : 3
   const verdict = rng.pick(VERDICT[tier])
   // Critics notice what is actually strong and weak, with a little disagreement.
   const ranked = [...DEPTS].sort((a, b) => scores[b] + rng.normal(0, 8) - (scores[a] + rng.normal(0, 8)))

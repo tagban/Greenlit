@@ -73,6 +73,7 @@ export type Film = {
   subgenre?: string
   parodyTarget?: string
   financing?: Financing
+  posterId?: string // player-uploaded poster
   script?: ScriptOffer
   directorId?: string
   leadIds: string[]
@@ -98,6 +99,7 @@ export type Studio = {
   key: string // secret Studio Key
   tag: string // 4-digit display tag
   recovery: string
+  logoId?: string
 }
 
 export type Game = {

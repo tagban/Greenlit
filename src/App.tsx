@@ -3,6 +3,7 @@ import { loadGame, saveGame } from './game/store'
 import { money } from './game/text'
 import type { Game } from './game/types'
 import FilmFlow from './screens/FilmFlow'
+import { StudioLogo } from './ui'
 import { Handbook, Hub, NewStudio, Roster, Settings } from './screens/Studio'
 
 type Tab = 'studio' | 'handbook' | 'talent' | 'office'
@@ -27,7 +28,7 @@ export default function App() {
   return (
     <main className="app">
       <header className="topbar">
-        <span className="brand">Greenlit</span>
+        <span className="brand"><StudioLogo id={game.studio.logoId} size={24} /> Greenlit</span>
         <span className={game.cash < 0 ? 'bad' : ''}>{money(game.cash)}</span>
       </header>
       <div className="content" key={tab + (game.current?.stage ?? '')}>

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { CAMPAIGN_YEARS, DEPTS, DEPT_LABEL, GENRES, GENRE_IDS, MONTHS, SUBGENRES, START_YEAR, subgenreById, type GenreId } from '../game/data'
 import { filmWeights, newFilm } from '../game/sim'
-import { LOAN_LIMIT, LOAN_STEP, canStartFilm, exportSave, importSave, isClean, lifetimeGross, repayLoan, takeLoan } from '../game/store'
+import { LOAN_LIMIT, LOAN_STEP, canStartFilm, setPoster, exportSave, importSave, isClean, lifetimeGross, repayLoan, takeLoan } from '../game/store'
 import { money } from '../game/text'
 import type { Game, Role } from '../game/types'
 import { campaignOver, monthOf, newGame, yearOf } from '../game/world'
-import { Meter, Poster, Stat, TalentCard, trendLabel } from '../ui'
+import { ImageUpload, Meter, Poster, ShareButton, Stat, StudioLogo, TalentCard, trendLabel } from '../ui'
+import { applyTheme, loadTheme, type Theme } from '../theme'
 
 type Props = { game: Game; setGame: (g: Game | undefined) => void }
 
@@ -54,6 +55,7 @@ export function Hub({ game, setGame }: Props) {
   return (
     <section>
       <div className="hub-head">
+        <StudioLogo id={game.studio.logoId} size={56} />
         <div>
           <h1>{game.studio.name} <span className="tag">#{game.studio.tag}</span></h1>
           <div className="muted">{game.studio.owner} · {MONTHS[monthOf(game.week)]} {yearOf(game.week)} · Year {Math.min(CAMPAIGN_YEARS, Math.floor(game.week / 52) + 1)} of {CAMPAIGN_YEARS}</div>
@@ -71,7 +73,7 @@ export function Hub({ game, setGame }: Props) {
         </div>
       ) : (
         <button className="primary big" disabled={!canStartFilm(game)} onClick={() => setGame({ ...game, current: newFilm(game) })}>
-          Greenlight a new film
+          Pitch a new film
         </button>
       )}
       <h3>What audiences want in {yearOf(game.week)}</h3>
@@ -85,12 +87,16 @@ export function Hub({ game, setGame }: Props) {
       <div className="filmography">
         {films.map((f) => (
           <div key={f.id} className="film-card">
-            <Poster genre={f.genre} small />
+            <Poster genre={f.genre} posterId={f.posterId} small />
             <div>
               <div className="film-title">{f.title}</div>
               <div className="muted small">{MONTHS[f.result!.releaseMonth]} {f.result!.releaseYear} · {subgenreById(f.subgenre)?.name ?? GENRES[f.genre].name}</div>
               <div className="small">{money(f.result!.domestic)} gross · {f.result!.criticScore}% critics</div>
               <div className={`small ${f.result!.profit >= 0 ? 'good' : 'bad'}`}>{money(f.result!.profit)} profit</div>
+              <div className="row card-actions">
+                <ImageUpload label={f.posterId ? 'Change poster' : 'Add poster'} width={600} height={900} onDone={(id) => setGame(setPoster(game, f.id, id))} />
+                <ShareButton game={game} film={f} />
+              </div>
             </div>
           </div>
         ))}
@@ -185,11 +191,22 @@ export function Roster({ game }: { game: Game }) {
 // ---------- Settings ----------
 
 export function Settings({ game, setGame }: Props) {
+  const [theme, setTheme] = useState<Theme>(loadTheme)
   const [confirm, setConfirm] = useState(false)
   const [show, setShow] = useState(false)
   return (
     <section>
       <h1>Studio office</h1>
+      <h3>Look</h3>
+      <div className="row logo-row">
+        <StudioLogo id={game.studio.logoId} size={64} />
+        <ImageUpload label={game.studio.logoId ? 'Change studio logo' : 'Upload a studio logo'} width={256} height={256} type="image/png" onDone={(id) => setGame({ ...game, studio: { ...game.studio, logoId: id } })} />
+      </div>
+      <div className="tabs theme-toggle">
+        {(['dark', 'light'] as Theme[]).map((t) => (
+          <button key={t} className={theme === t ? 'active' : ''} onClick={() => { applyTheme(t); setTheme(t) }}>{t === 'dark' ? 'Dark mode' : 'Light mode'}</button>
+        ))}
+      </div>
       <h3>Bank</h3>
       <div className="ledger">
         <div><span>Loans outstanding</span><span>{money(game.debt)}</span></div>

@@ -7,6 +7,7 @@ import {
   POST_WEEKS, PRINT_COST, grade, filmQuality, marketingTotal, productionCost, reshootCost, rollProductionEvents,
   simulateRelease, talentCost, type MonthSlot,
 } from './sim'
+import { getImages, putImage } from '../images'
 import type { Bid, Film, Game } from './types'
 import { advanceWeeks, ageTalent, campaignOver, yearOf } from './world'
 
@@ -41,8 +42,13 @@ export function saveGame(game: Game | undefined) {
   }
 }
 
-export function exportSave(game: Game) {
-  const blob = new Blob([JSON.stringify(game, null, 2)], { type: 'application/json' })
+// A save export carries the player's images too, so posters survive moving devices.
+type SaveFile = Game & { images?: Record<string, string> }
+
+export async function exportSave(game: Game) {
+  const ids = [game.studio.logoId, ...game.films.map((f) => f.posterId), game.current?.posterId].filter(Boolean) as string[]
+  const file: SaveFile = { ...game, images: await getImages(ids) }
+  const blob = new Blob([JSON.stringify(file)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -52,9 +58,16 @@ export function exportSave(game: Game) {
 }
 
 export async function importSave(file: File): Promise<Game> {
-  const game = JSON.parse(await file.text()) as Game
+  const { images, ...game } = JSON.parse(await file.text()) as SaveFile
   if (game.version !== 1 || !game.studio?.id) throw new Error('Not a Greenlit save file')
+  for (const [id, url] of Object.entries(images ?? {})) await putImage(id, url)
   return game
+}
+
+// Attach a picture to a film, whether it's in production or already released.
+export function setPoster(game: Game, filmId: string, posterId: string): Game {
+  if (game.current?.id === filmId) return { ...game, current: { ...game.current, posterId } }
+  return { ...game, films: game.films.map((f) => (f.id === filmId ? { ...f, posterId } : f)) }
 }
 
 // ---------- Time ----------

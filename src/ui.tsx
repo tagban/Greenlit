@@ -1,4 +1,7 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { newImageId, processImage, putImage, useImage } from './images'
+import { shareFilm } from './share'
+import type { Film, Game } from './game/types'
 import { GENRES, type GenreId } from './game/data'
 import { money } from './game/text'
 import type { Talent } from './game/types'
@@ -6,9 +9,10 @@ import { talentFee } from './game/world'
 
 export const art = (genre: GenreId) => `${import.meta.env.BASE_URL}art/genres/${genre}.svg`
 
-export function Poster({ genre, title, sub, small }: { genre: GenreId; title?: string; sub?: string; small?: boolean }) {
+export function Poster({ genre, title, sub, small, posterId }: { genre: GenreId; title?: string; sub?: string; small?: boolean; posterId?: string }) {
+  const custom = useImage(posterId)
   return (
-    <div className={`poster${small ? ' poster-small' : ''}`} style={{ backgroundImage: `url(${art(genre)})` }}>
+    <div className={`poster${small ? ' poster-small' : ''}${custom ? ' custom' : ''}`} style={{ backgroundImage: `url(${custom ?? art(genre)})` }}>
       <div className="poster-text">
         {title && <div className="poster-title">{title}</div>}
         {sub && <div className="poster-sub">{sub}</div>}
@@ -82,4 +86,48 @@ export function trendLabel(v: number) {
   if (v <= 0.75) return { text: 'Dead', tone: 'bad' as const }
   if (v <= 0.9) return { text: 'Cooling', tone: 'bad' as const }
   return { text: 'Steady', tone: undefined }
+}
+
+// Pick a photo or file, crop it to the right shape and store it. Calls back with the image id.
+export function ImageUpload({ label, width, height, type, onDone }: { label: string; width: number; height: number; type?: string; onDone: (id: string) => void }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  return (
+    <label className={`upload${busy ? ' busy' : ''}`}>
+      {busy ? 'Saving…' : label}
+      <input type="file" accept="image/*" hidden onChange={async (e) => {
+        const file = e.target.files?.[0]
+        e.target.value = ''
+        if (!file) return
+        setBusy(true)
+        setError('')
+        try {
+          const id = newImageId()
+          await putImage(id, await processImage(file, width, height, type))
+          onDone(id)
+        } catch {
+          setError('That image couldn’t be read.')
+        }
+        setBusy(false)
+      }} />
+      {error && <em className="bad">{error}</em>}
+    </label>
+  )
+}
+
+export function ShareButton({ game, film }: { game: Game; film: Film }) {
+  const [busy, setBusy] = useState(false)
+  return (
+    <button className="share" disabled={busy} onClick={async () => {
+      setBusy(true)
+      try { await shareFilm(game, film) } finally { setBusy(false) }
+    }}>
+      {busy ? 'Making card…' : 'Share'}
+    </button>
+  )
+}
+
+export function StudioLogo({ id, size = 28 }: { id?: string; size?: number }) {
+  const url = useImage(id)
+  return <img className="studio-logo" src={url ?? `${import.meta.env.BASE_URL}art/logo.svg`} width={size} height={size} alt="" />
 }
