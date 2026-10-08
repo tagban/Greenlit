@@ -131,3 +131,12 @@ export function StudioLogo({ id, size = 28 }: { id?: string; size?: number }) {
   const url = useImage(id)
   return <img className="studio-logo" src={url ?? `${import.meta.env.BASE_URL}art/logo.svg`} width={size} height={size} alt="" />
 }
+
+// Short career status shown on talent cards.
+export function careerNote(t: Talent, year: number): string | undefined {
+  if (t.debut === year && year > 2000) return 'New face this year'
+  const change = t.star - (t.prevStar ?? t.star)
+  if (change >= 4) return `Rising star ↑${change}`
+  if (change <= -4) return `Fading ↓${-change}`
+  return undefined
+}

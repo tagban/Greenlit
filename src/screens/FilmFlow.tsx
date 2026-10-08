@@ -10,8 +10,8 @@ import {
 } from '../game/store'
 import { money } from '../game/text'
 import type { Film, Game, Talent } from '../game/types'
-import { willWork } from '../game/world'
-import { ImageUpload, Meter, Poster, ShareButton, Stat, Steps, TalentCard, trendLabel } from '../ui'
+import { willWork, yearOf } from '../game/world'
+import { careerNote, ImageUpload, Meter, Poster, ShareButton, Stat, Steps, TalentCard, trendLabel } from '../ui'
 
 type Props = { game: Game; setGame: (g: Game) => void }
 
@@ -220,7 +220,7 @@ function Cast({ film, game, setGame, update }: Props & { film: Film; update: (p:
   const otherActors = new Set(tab === 'leadIds' ? film.supportIds : tab === 'supportIds' ? film.leadIds : [])
   const available = (t: Talent) => willWork(t, game.reputation) && t.relationship > -30
   const score = (t: Talent) => t.skill * (0.6 + t.genreFit[film.genre] / 250) + (available(t) ? 1000 : 0)
-  const pool = game.talent.filter((t) => t.role === role).sort((a, b) => score(b) - score(a))
+  const pool = game.talent.filter((t) => t.role === role && !t.retired).sort((a, b) => score(b) - score(a))
 
   const toggle = (t: Talent) => {
     const current = chosen(tab)
@@ -233,9 +233,10 @@ function Cast({ film, game, setGame, update }: Props & { film: Film; update: (p:
     const fit = t.genreFit[film.genre]
     if (!willWork(t, game.reputation)) return 'Won’t take your calls yet. Build your reputation.'
     if (t.relationship <= -30) return 'Still angry about last time.'
-    if (fit >= 70) return `Great fit for ${GENRES[film.genre].name.toLowerCase()}`
+    const career = careerNote(t, yearOf(game.week))
+    if (fit >= 70) return [`Great fit for ${GENRES[film.genre].name.toLowerCase()}`, career].filter(Boolean).join(' · ')
     if (fit < 40) return `Rarely does ${GENRES[film.genre].name.toLowerCase()}`
-    return t.temperament > 70 ? 'Known to be difficult on set' : undefined
+    return [t.temperament > 70 ? 'Known to be difficult on set' : undefined, career].filter(Boolean).join(' · ') || undefined
   }
   const ready = film.directorId && film.leadIds.length > 0 && cost <= fundsOf(game)
   const tabs: [Slot, string][] = [['directorId', 'Director'], ['leadIds', 'Leads'], ['supportIds', 'Support'], ['composerId', 'Composer']]

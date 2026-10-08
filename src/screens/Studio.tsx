@@ -5,7 +5,7 @@ import { LOAN_LIMIT, LOAN_STEP, canStartFilm, setPoster, exportSave, importSave,
 import { money } from '../game/text'
 import type { Game, Role } from '../game/types'
 import { campaignOver, monthOf, newGame, yearOf } from '../game/world'
-import { ImageUpload, Meter, Poster, ShareButton, Stat, StudioLogo, TalentCard, trendLabel } from '../ui'
+import { careerNote, ImageUpload, Meter, Poster, ShareButton, Stat, StudioLogo, TalentCard, trendLabel } from '../ui'
 import { applyTheme, loadTheme, type Theme } from '../theme'
 
 type Props = { game: Game; setGame: (g: Game | undefined) => void }
@@ -52,6 +52,7 @@ export function Hub({ game, setGame }: Props) {
   const over = campaignOver(game.week)
   const hot = SUBGENRES.filter((s) => s.id !== 'parody').sort((a, b) => game.trends[b.id] - game.trends[a.id])
   const films = [...game.films].reverse()
+  const news = trendNews(game)
   return (
     <section>
       <div className="hub-head">
@@ -67,10 +68,15 @@ export function Hub({ game, setGame }: Props) {
         <Stat label="Films" value={game.films.length} />
         <Stat label="Lifetime gross" value={money(lifetimeGross(game))} />
       </div>
-      {game.cash < 0 && !over && (
-        <div className="callout bad">You’re in the red. Overhead keeps running between films. Land a backer for your next pitch, or borrow from the bank in the Office.</div>
+      {game.bankrupt && (
+        <div className="callout bad">
+          <strong>Bankrupt.</strong> The bank called in its loans and {game.studio.name} closed its doors after {game.films.length} films and {money(lifetimeGross(game))} at the box office. Start a new studio from the Office.
+        </div>
       )}
-      {over ? (
+      {game.debt >= LOAN_LIMIT * 0.75 && !game.bankrupt && !over && (
+        <div className="callout bad">The bank is nervous: you owe {money(game.debt)} of your {money(LOAN_LIMIT)} credit line. Overhead keeps running between films. If the line runs out, the studio goes bankrupt.</div>
+      )}
+      {game.bankrupt ? null : over ? (
         <div className="callout good">
           <strong>Campaign complete.</strong> {CAMPAIGN_YEARS} years, {game.films.length} films, {money(lifetimeGross(game))} at the box office. This studio is headed for the Hall of Fame.
         </div>
@@ -80,6 +86,7 @@ export function Hub({ game, setGame }: Props) {
         </button>
       )}
       <h3>What audiences want in {yearOf(game.week)}</h3>
+      {news && <p className="news">{news}</p>}
       <div className="trends">
         {hot.slice(0, 4).map((s) => <TrendChip key={s.id} name={s.name} value={game.trends[s.id]} />)}
         {hot.slice(-3).map((s) => <TrendChip key={s.id} name={s.name} value={game.trends[s.id]} />)}
@@ -106,6 +113,18 @@ export function Hub({ game, setGame }: Props) {
       </div>
     </section>
   )
+}
+
+// One line of trade-paper news about the biggest mover since last year.
+function trendNews(game: Game): string | undefined {
+  if (!game.prevTrends) return undefined
+  const moves = SUBGENRES.filter((s) => s.id !== 'parody').map((s) => ({ s, d: game.trends[s.id] - (game.prevTrends![s.id] ?? game.trends[s.id]) }))
+  const up = moves.reduce((a, b) => (b.d > a.d ? b : a))
+  const down = moves.reduce((a, b) => (b.d < a.d ? b : a))
+  const parts: string[] = []
+  if (up.d >= 0.1) parts.push(`${up.s.name} is surging`)
+  if (down.d <= -0.1) parts.push(`${down.s.name.toLowerCase()} is cooling off`)
+  return parts.length ? `Trade news: ${parts.join(', while ')}.` : undefined
 }
 
 function TrendChip({ name, value }: { name: string; value: number }) {
@@ -171,7 +190,12 @@ export function Handbook({ game }: { game: Game }) {
 
 export function Roster({ game }: { game: Game }) {
   const [role, setRole] = useState<Role>('actor')
-  const list = game.talent.filter((t) => t.role === role).sort((a, b) => b.star - a.star)
+  const [filter, setFilter] = useState<'all' | 'rising' | 'new'>('all')
+  const year = yearOf(game.week)
+  const list = game.talent
+    .filter((t) => t.role === role && !t.retired)
+    .filter((t) => filter === 'all' || (filter === 'new' ? t.debut === year : t.star - (t.prevStar ?? t.star) >= 4))
+    .sort((a, b) => b.star - a.star)
   return (
     <section>
       <h1>Talent</h1>
@@ -180,11 +204,17 @@ export function Roster({ game }: { game: Game }) {
           <button key={r} className={role === r ? 'active' : ''} onClick={() => setRole(r)}>{r[0].toUpperCase() + r.slice(1)}s</button>
         ))}
       </div>
+      <div className="tabs">
+        {(['all', 'rising', 'new'] as const).map((f) => (
+          <button key={f} className={filter === f ? 'active' : ''} onClick={() => setFilter(f)}>{f === 'all' ? 'Everyone' : f === 'rising' ? 'Rising' : 'New this year'}</button>
+        ))}
+      </div>
+      {list.length === 0 && <p className="muted">Nobody here yet. New faces arrive every January.</p>}
       <div className="list">
         {list.map((t) => {
           const best = GENRE_IDS.reduce((a, b) => (t.genreFit[a] >= t.genreFit[b] ? a : b))
           const rel = t.relationship > 15 ? 'Likes working with you' : t.relationship < -15 ? 'Unhappy with your studio' : undefined
-          return <TalentCard key={t.id} t={t} note={[`Best at ${GENRES[best].name.toLowerCase()}`, rel].filter(Boolean).join(' · ')} />
+          return <TalentCard key={t.id} t={t} note={[`Best at ${GENRES[best].name.toLowerCase()}`, careerNote(t, year), rel].filter(Boolean).join(' · ')} />
         })}
       </div>
     </section>

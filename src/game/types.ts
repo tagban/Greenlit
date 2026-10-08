@@ -13,6 +13,10 @@ export type Talent = {
   temperament: number // 0..100, higher = more trouble
   relationship: number // -100..100 with the player's studio
   hue: number // portrait colour
+  potential?: number // hidden ceiling for star power; rookies with high potential break out
+  debut?: number // year they joined the roster
+  prevStar?: number // star power a year ago, for rising/fading arrows
+  retired?: boolean
 }
 
 export type ScriptOffer = {
@@ -113,9 +117,11 @@ export type Game = {
   reputation: number // 0..100
   talent: Talent[]
   trends: Record<string, number> // by subgenre id, 0.5..1.6
+  prevTrends?: Record<string, number> // last year's, for trend news
   hotKeyword: string
   films: Film[]
   current?: Film
   lastPostedAt?: number
+  bankrupt?: boolean
   backerRel?: Record<string, number> // how each backer feels about you after past deals
 }

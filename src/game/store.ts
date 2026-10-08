@@ -9,7 +9,7 @@ import {
 } from './sim'
 import { getImages, putImage } from '../images'
 import type { Bid, Film, Game } from './types'
-import { advanceWeeks, ageTalent, campaignOver, yearOf } from './world'
+import { advanceWeeks, campaignOver, yearOf } from './world'
 
 const SAVE_KEY = 'greenlit.save.v1'
 export const LOAN_STEP = 250_000
@@ -73,11 +73,8 @@ export function setPoster(game: Game, filmId: string, posterId: string): Game {
 // ---------- Time ----------
 
 function passTime(game: Game, weeks: number): Game {
-  const yearBefore = yearOf(game.week)
   const overhead = overheadFor(game.reputation) + Math.round((game.debt * 0.08) / 52)
-  const g = advanceWeeks(game, weeks, overhead)
-  const years = yearOf(g.week) - yearBefore
-  return years > 0 ? { ...g, talent: ageTalent(g, years) } : g
+  return coverOverdraft(advanceWeeks(game, weeks, overhead))
 }
 
 // Pays a cost, drawing on the backer's money first when the film has one.
@@ -96,7 +93,7 @@ export const backerLeft = (film: Film) => (film.financing ? film.financing.cap -
 // ---------- Film pipeline ----------
 
 export function canStartFilm(game: Game) {
-  return !game.current && !campaignOver(game.week)
+  return !game.current && !game.bankrupt && !campaignOver(game.week)
 }
 
 export function acceptFinancing(game: Game, film: Film, bid: Bid | undefined): Game {
@@ -169,14 +166,14 @@ export function releaseFilm(game: Game, film: Film, slot: MonthSlot): Game {
   // Backers remember how their money did.
   const backerRel = { ...(game.backerRel ?? {}) }
   if (film.financing) backerRel[film.financing.backer] = clamp((backerRel[film.financing.backer] ?? 0) + (roi >= 1.5 ? 8 : roi < 0.7 ? -10 : 0), -30, 30)
-  return {
+  return coverOverdraft({
     ...g,
     talent,
     cash: g.cash + result.studioRevenue + result.ancillary - result.partnerCut,
     reputation: clamp(Math.round(g.reputation + repDelta), 0, 100),
     backerRel,
     current: done,
-  }
+  })
 }
 
 export function closeFilm(game: Game): Game {
@@ -185,6 +182,16 @@ export function closeFilm(game: Game): Game {
 }
 
 // ---------- Money ----------
+
+// The bank quietly turns an overdraft into a loan until the credit line runs out.
+// Past that, the studio is bankrupt and the campaign ends.
+export function coverOverdraft(game: Game): Game {
+  if (game.cash >= 0) return game
+  const need = Math.ceil(-game.cash / 50_000) * 50_000
+  const borrow = Math.min(need, LOAN_LIMIT - game.debt)
+  const g = { ...game, cash: game.cash + borrow, debt: game.debt + borrow }
+  return g.cash < 0 ? { ...g, bankrupt: true } : g
+}
 
 export const takeLoan = (game: Game): Game =>
   game.debt + LOAN_STEP > LOAN_LIMIT ? game : { ...game, debt: game.debt + LOAN_STEP, cash: game.cash + LOAN_STEP }

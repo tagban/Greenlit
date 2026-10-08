@@ -21,7 +21,7 @@ function play(game: Game, plan: Plan): Game {
   const deal = bid ? `${bid.backer.split(' ')[0]} ${money(bid.cap)}@${Math.round(bid.share * 100)}%` : 'self'
   const offers = scriptOffers(g, g.current!)
   g = chooseScript(g, g.current!, offers[plan.script].id, offers)
-  const avail = (role: string) => g.talent.filter((t) => t.role === role && willWork(t, g.reputation))
+  const avail = (role: string) => g.talent.filter((t) => t.role === role && !t.retired && willWork(t, g.reputation))
   const pick = (role: string) => {
     const list = avail(role).sort((a, b) => plan.star === 'best' ? b.skill + b.star - (a.skill + a.star) : talentFee(a) - talentFee(b))
     return plan.star === 'cheap' ? list.sort((a, b) => b.skill - a.skill).filter((t) => talentFee(t) < 120_000)[0] ?? list[0] : list[0]
@@ -37,7 +37,7 @@ function play(game: Game, plan: Plan): Game {
   const cashBefore = g.cash
   g = releaseFilm(g, film, slot)
   const r = g.current!.result!
-  console.log(`${plan.name.padEnd(14)} ${deal.padEnd(22)} Q${String(r.quality).padStart(3)} crit ${String(r.criticScore).padStart(3)}% hype ${r.hype.toFixed(2)} open ${money(r.opening).padStart(7)} dom ${money(r.domestic).padStart(7)} cost ${money(r.totalCost).padStart(7)} profit ${money(r.profit).padStart(7)} | cash ${money(cashBefore)}→${money(g.cash)} rep ${g.reputation}`)
+  console.log(`${plan.name.padEnd(14)} ${deal.padEnd(22)} Q${String(r.quality).padStart(3)} crit ${String(r.criticScore).padStart(3)}% hype ${r.hype.toFixed(2)} open ${money(r.opening).padStart(7)} dom ${money(r.domestic).padStart(7)} cost ${money(r.totalCost).padStart(7)} profit ${money(r.profit).padStart(7)} | cash ${money(cashBefore)}→${money(g.cash)} debt ${money(g.debt)} rep ${g.reputation}${g.bankrupt ? " BANKRUPT" : ""}`)
   return closeFilm(g)
 }
 

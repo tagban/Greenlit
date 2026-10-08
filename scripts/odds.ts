@@ -26,7 +26,7 @@ function playOne(seed: number, style: Style): { profit: number; domestic: number
   const offers = scriptOffers(g, g.current!)
   const script = style === 'smart' ? offers.reduce((a, b) => (b.coverage < a.coverage && b.cost < bid.cap * 0.2 ? b : a)) : r.pick(offers)
   g = chooseScript(g, g.current!, script.id, offers)
-  const pool = (role: string) => g.talent.filter((t) => t.role === role && willWork(t, g.reputation) && talentFee(t) < bid.cap * 0.25)
+  const pool = (role: string) => g.talent.filter((t) => t.role === role && !t.retired && willWork(t, g.reputation) && talentFee(t) < bid.cap * 0.25)
   const best = (role: string) => pool(role).sort((a, b) => b.skill * (0.6 + b.genreFit[genre] / 250) - a.skill * (0.6 + a.genreFit[genre] / 250))[0]
   const pick = (role: string) => (style === 'smart' ? best(role) : r.pick(pool(role)))
   const remaining = () => bid.cap - g.current!.financing!.used + g.cash
