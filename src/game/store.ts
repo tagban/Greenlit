@@ -164,12 +164,17 @@ export function releaseFilm(game: Game, film: Film, slot: MonthSlot): Game {
     const starBump = result.domestic > 50_000_000 ? 4 : result.domestic > 10_000_000 ? 2 : result.quality < 35 ? -2 : 0
     return { ...t, relationship: clamp(rel, -100, 100), star: clamp(t.star + starBump, 1, 99) }
   })
-  const repDelta = (result.quality - 45) / 6 + (result.profit > 0 ? 2 : -1) + (result.domestic > 25_000_000 ? 4 : result.domestic > 5_000_000 ? 2 : 0)
+  const roi = (result.studioRevenue + result.ancillary) / Math.max(1, result.totalCost)
+  const repDelta = (result.quality - 45) / 6 + (roi >= 1 ? 2 : roi < 0.5 ? -4 : -1) + (result.domestic > 25_000_000 ? 4 : result.domestic > 5_000_000 ? 2 : 0)
+  // Backers remember how their money did.
+  const backerRel = { ...(game.backerRel ?? {}) }
+  if (film.financing) backerRel[film.financing.backer] = clamp((backerRel[film.financing.backer] ?? 0) + (roi >= 1.5 ? 8 : roi < 0.7 ? -10 : 0), -30, 30)
   return {
     ...g,
     talent,
     cash: g.cash + result.studioRevenue + result.ancillary - result.partnerCut,
     reputation: clamp(Math.round(g.reputation + repDelta), 0, 100),
+    backerRel,
     current: done,
   }
 }

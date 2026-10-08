@@ -152,7 +152,7 @@ function Financing({ film, game, setGame, update }: Props & { film: Film; update
             <div className="offer-body">
               <div className="offer-title">{b.backer}</div>
               <div className="muted small">{b.blurb}</div>
-              <div className="small">Covers up to <strong>{money(b.cap)}</strong> of costs · takes <strong>{Math.round(b.share * 100)}%</strong> of revenue</div>
+              <div className="small">Covers up to <strong>{money(b.cap)}</strong> of costs · earns it back first, then takes <strong>{Math.round(b.share * 100)}%</strong> of the rest</div>
             </div>
           </button>
         ))}
@@ -484,9 +484,9 @@ function Results({ film, game, setGame }: Props & { film: Film }) {
       <div className="ledger">
         <div><span>Studio share of domestic</span><span>{money(r.studioRevenue)}</span></div>
         <div><span>International, video and TV</span><span>{money(r.ancillary)}</span></div>
-        {film.financing && <div><span>{film.financing.backer}’s share ({Math.round(film.financing.share * 100)}%)</span><span>-{money(r.partnerCut)}</span></div>}
+        {film.financing && <div><span>{film.financing.backer} (paid back + {Math.round(film.financing.share * 100)}%)</span><span>-{money(r.partnerCut)}</span></div>}
         <div><span>Total cost</span><span>-{money(r.totalCost)}</span></div>
-        {r.funded > 0 && <div><span>Paid by {film.financing!.backer}</span><span>+{money(r.funded)}</span></div>}
+        {r.funded > 0 && <div><span>Costs covered by {film.financing!.backer}</span><span>+{money(r.funded)}</span></div>}
         <div className="total"><span>Profit</span><span className={r.profit >= 0 ? 'good' : 'bad'}>{money(r.profit)}</span></div>
       </div>
       <button className="primary" onClick={() => setGame(closeFilm(game))}>Back to the studio</button>

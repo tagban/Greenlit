@@ -58,6 +58,7 @@ export type FilmResult = {
   reviews: Review[]
   criticScore: number // 0..100
   peakScreens: number
+  reception: number // audience luck: <1 cold, >1 warm
   headline: string
   breakdown: string[]
   releaseYear: number
@@ -116,4 +117,5 @@ export type Game = {
   films: Film[]
   current?: Film
   lastPostedAt?: number
+  backerRel?: Record<string, number> // how each backer feels about you after past deals
 }

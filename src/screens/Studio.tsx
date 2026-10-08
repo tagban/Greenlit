@@ -67,6 +67,9 @@ export function Hub({ game, setGame }: Props) {
         <Stat label="Films" value={game.films.length} />
         <Stat label="Lifetime gross" value={money(lifetimeGross(game))} />
       </div>
+      {game.cash < 0 && !over && (
+        <div className="callout bad">You’re in the red. Overhead keeps running between films. Land a backer for your next pitch, or borrow from the bank in the Office.</div>
+      )}
       {over ? (
         <div className="callout good">
           <strong>Campaign complete.</strong> {CAMPAIGN_YEARS} years, {game.films.length} films, {money(lifetimeGross(game))} at the box office. This studio is headed for the Hall of Fame.

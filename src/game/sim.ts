@@ -76,10 +76,12 @@ export function backerBids(game: Game, film: Film): Bid[] {
   return BACKERS.map((b) => {
     const pass = (reason: string) => ({ backer: b.name, cap: 0, share: 0, blurb: b.style, reason })
     if (game.reputation < b.minRep) return pass('Won’t take a meeting with a studio your size yet.')
-    const interest = score + (b.taste[film.genre] ?? 0) + b.indie * small + rng.normal(0, 7)
+    const memory = game.backerRel?.[b.name] ?? 0
+    const interest = score + (b.taste[film.genre] ?? 0) + b.indie * small + memory + rng.normal(0, 7)
+    if (interest < 30 && memory <= -10) return pass('Still burned from your last film together.')
     if (interest < 30) return pass(rng.pick(['Passed. “Not for us.”', 'Passed. They didn’t see an audience for it.', 'Passed after a polite meeting.']))
-    const base = (450_000 + game.reputation * 80_000) * b.pockets
-    const cap = Math.round(Math.min(b.maxCap, base * Math.pow(interest / 50, 2)) / 10_000) * 10_000
+    const base = (250_000 + game.reputation * 60_000) * b.pockets
+    const cap = Math.round(Math.min(b.maxCap, base * Math.pow(interest / 50, 1.5)) / 10_000) * 10_000
     const share = Number(clamp(0.8 - interest / 250 + b.greed, 0.35, 0.8).toFixed(2))
     return { backer: b.name, cap, share, blurb: b.style }
   }).sort((a, b) => b.cap - a.cap)
@@ -297,7 +299,7 @@ export function computeHype(game: Game, film: Film): number {
   const trend = trendFor(game, film)
   const text = film.logline.toLowerCase()
   const sub = subgenreById(film.subgenre)
-  const keyword = (text.includes(game.hotKeyword) ? 0.25 : 0) + (sub && sub.keywords.some((k) => text.includes(k)) ? 0.08 : 0)
+  const keyword = (text.includes(game.hotKeyword) ? 0.12 : 0) + (sub && sub.keywords.some((k) => text.includes(k)) ? 0.05 : 0)
   return Math.max(0.15, 0.3 + ((leadStar + directorStar * 0.4) / 100) * 1.1 + marketing + (trend - 1) * 0.8 + keyword)
 }
 
@@ -307,14 +309,19 @@ export function simulateRelease(game: Game, film: Film, slot: MonthSlot): FilmRe
   const hype = computeHype(game, film)
   const trend = trendFor(game, film)
   const { reviews, criticScore } = reviewFilm(film, quality, trend, scores, rng)
-  const appeal = Math.pow(trend, 0.7) * (0.75 + (0.5 * quality) / 100) * slot.season * (1 - slot.competition * 0.35)
-  const bookable = Math.round(Math.min(film.release.screens, 300 + hype * 1500))
-  let perScreen = 3500 * hype * appeal * rng.range(0.9, 1.1)
-  let hold = 0.32 + (0.48 * quality) / 100 + (criticScore - 50) / 500 - Math.max(0, hype - 2) * 0.03 + rng.normal(0, 0.03)
+  // Audiences are unpredictable: every film rolls a reception factor that can sink a
+  // good film or lift a modest one. Most films land near 1; a few flop or break out.
+  const reception = Math.exp(rng.normal(-0.12, 0.42))
+  const appeal = Math.pow(trend, 0.6) * (0.6 + (0.6 * quality) / 100) * slot.season * (1 - slot.competition * 0.4) * reception
+  const bookable = Math.round(Math.min(film.release.screens, 250 + hype * 1300))
+  let perScreen = 2400 * hype * appeal * rng.range(0.9, 1.1)
+  let hold = 0.28 + (0.45 * quality) / 100 + (criticScore - 50) / 600 + (reception - 1) * 0.05 - Math.max(0, hype - 2) * 0.03 + rng.normal(0, 0.03)
   if (film.subgenre === 'parody' && trend < 1) hold -= 0.05 // stale target
-  hold = clamp(hold, 0.25, 0.85)
-  // Word of mouth: well-liked films get booked into more theaters in the first weeks.
-  const buzz = (criticScore - 55) / 100 + (quality - 55) / 100
+  hold = clamp(hold, 0.22, 0.8)
+  // Word of mouth: only films critics and audiences both like get booked into more
+  // theaters, and even a sleeper hit grows to at most three times its opening count.
+  const buzz = criticScore >= 60 && quality >= 55 && reception > 0.9 ? (criticScore - 58) / 100 + (quality - 55) / 100 : 0
+  const maxScreens = Math.min(3800, bookable * 3)
   let screens = bookable
   let peakScreens = bookable
   const weekly: number[] = []
@@ -322,19 +329,21 @@ export function simulateRelease(game: Game, film: Film, slot: MonthSlot): FilmRe
     const gross = Math.round(screens * perScreen)
     if (weekly.length > 0 && gross < 40_000) break
     weekly.push(gross)
-    if (weekly.length < 6 && buzz > 0) screens = Math.min(3800, Math.round(screens * (1 + buzz * 2.5)))
+    if (weekly.length < 5 && buzz > 0) screens = Math.min(maxScreens, Math.round(screens * (1 + buzz * 1.1)))
     else if (perScreen < 1500) screens = Math.max(50, Math.round(screens * 0.75))
     peakScreens = Math.max(peakScreens, screens)
-    perScreen *= clamp(hold + (buzz > 0 && weekly.length < 6 ? 0.08 : 0) + rng.normal(0, 0.02), 0.2, 0.92)
+    perScreen *= clamp(hold + (buzz > 0 && weekly.length < 5 ? 0.05 : 0) + rng.normal(0, 0.02), 0.2, 0.9)
   }
   const opening = weekly[0]
   const domestic = weekly.reduce((a, b) => a + b, 0)
   const intl = film.genre === 'action' || film.genre === 'scifi' ? 1.3 : film.genre === 'horror' ? 1.1 : film.genre === 'comedy' ? 0.8 : 0.95
   const studioRevenue = Math.round(domestic * 0.5)
-  const ancillary = Math.round(domestic * (0.3 + (0.4 * quality) / 100) * intl)
+  const ancillary = Math.round(domestic * (0.15 + (0.3 * quality) / 100) * intl)
   const cost = totalCost(film)
   const funded = film.financing?.used ?? 0
-  const partnerCut = Math.round((studioRevenue + ancillary) * (film.financing?.share ?? 0))
+  // Recoupment: the backer is paid back what it put in first, then takes its share of the rest.
+  const gross = studioRevenue + ancillary
+  const partnerCut = film.financing ? Math.round(Math.min(gross, funded) + Math.max(0, gross - funded) * film.financing.share) : 0
   const result: FilmResult = {
     quality,
     deptScores: scores,
@@ -351,6 +360,7 @@ export function simulateRelease(game: Game, film: Film, slot: MonthSlot): FilmRe
     reviews,
     criticScore,
     peakScreens,
+    reception,
     headline: '',
     breakdown: [],
     releaseYear: slot.year,

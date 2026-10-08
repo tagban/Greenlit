@@ -110,6 +110,8 @@ export function writeBreakdown(film: Film, r: FilmResult, w: Weights, trend: num
   else if (slot.season < 1) lines.push(`${MONTHS[slot.month]} was the wrong month for it.`)
   if (slot.competition > 0.6) lines.push(`Heavy competition that month split the audience.`)
   if (booked < film.release.screens) lines.push(`Low hype meant theaters only booked ${booked.toLocaleString()} of the ${film.release.screens.toLocaleString()} screens you wanted. More marketing or bigger stars fix that.`)
+  if (r.reception < 0.65) lines.push('Audiences just didn’t connect with it. Sometimes a film misses for reasons nobody can explain.')
+  else if (r.reception > 1.5) lines.push('Audiences fell for it. Lightning in a bottle that no amount of planning can guarantee.')
   if (r.peakScreens > booked * 1.3) lines.push(`Strong word of mouth expanded it from ${booked.toLocaleString()} to ${r.peakScreens.toLocaleString()} screens.`)
   if (r.hype > 2 && r.quality < 50) lines.push('Big marketing bought a big opening, but word of mouth killed the second weekend.')
   if (r.quality >= 70 && r.hype < 1) lines.push('A genuinely good film that too few people heard about. Spend more on marketing next time.')
