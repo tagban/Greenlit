@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1536">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1a0f2e"/>
+      <stop offset="0.55" stop-color="#3e1f52"/>
+      <stop offset="0.8" stop-color="#6a2f63"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffe0ef" stop-opacity="0.9"/>
+      <stop offset="0.3" stop-color="#ff9ac8" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#b65bd6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cone" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd6ea" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ff9ac8" stop-opacity="0.08"/>
+    </linearGradient>
+    <radialGradient id="puddle" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffb8da" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ff8ac0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="street" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1636"/>
+      <stop offset="1" stop-color="#08050c"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#07040a" stop-opacity="0"/>
+      <stop offset="1" stop-color="#07040a" stop-opacity="0.95"/>
+    </linearGradient>
+    <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
+    <clipPath id="lit"><path d="M512 340 L330 1120 L694 1120 Z"/></clipPath>
+  </defs>
+
+  <rect width="1024" height="1536" fill="url(#sky)"/>
+  <!-- distant bokeh city -->
+  <g filter="url(#blur)" opacity="0.7">
+    <circle cx="90" cy="820" r="26" fill="#ff7ab0"/><circle cx="200" cy="760" r="18" fill="#c58cff"/>
+    <circle cx="300" cy="860" r="22" fill="#ffb07a"/><circle cx="760" cy="780" r="24" fill="#c58cff"/>
+    <circle cx="860" cy="860" r="20" fill="#ff7ab0"/><circle cx="950" cy="760" r="16" fill="#ffd0a0"/>
+    <circle cx="140" cy="940" r="14" fill="#9a7aff"/><circle cx="900" cy="960" r="15" fill="#ff9ad0"/>
+  </g>
+  <!-- buildings -->
+  <path fill="#1d1028" d="M0 1000 L0 620 L90 620 L90 560 L170 560 L170 700 L250 700 L250 1000 Z M780 1000 L780 660 L860 660 L860 540 L940 540 L940 640 L1024 640 L1024 1000 Z"/>
+  <g fill="#ffb8d8" opacity="0.5">
+    <rect x="30" y="660" width="14" height="20"/><rect x="110" y="600" width="14" height="20"/>
+    <rect x="200" y="740" width="14" height="20"/><rect x="880" y="580" width="14" height="20"/>
+    <rect x="960" y="680" width="14" height="20"/><rect x="810" y="720" width="14" height="20"/>
+  </g>
+
+  <!-- street -->
+  <rect y="1000" width="1024" height="536" fill="url(#street)"/>
+
+  <!-- streetlight glow + cone -->
+  <circle cx="512" cy="330" r="300" fill="url(#halo)"/>
+  <path d="M512 340 L330 1120 L694 1120 Z" fill="url(#cone)"/>
+  <ellipse cx="512" cy="1120" rx="260" ry="50" fill="url(#puddle)"/>
+
+  <!-- lamppost -->
+  <rect x="640" y="320" width="14" height="800" fill="#0d0712"/>
+  <path d="M647 320 Q647 280 600 280 L512 280" fill="none" stroke="#0d0712" stroke-width="12"/>
+  <path d="M482 286 L542 286 L530 336 L494 336 Z" fill="#0d0712"/>
+  <ellipse cx="512" cy="338" rx="22" ry="8" fill="#fff0f7"/>
+  <rect x="628" y="1100" width="38" height="24" fill="#0d0712"/>
+
+  <!-- rain: global faint -->
+  <g stroke="#d8b8ff" stroke-width="1.6" stroke-linecap="round" opacity="0.25">
+    <path d="M60 120 L52 190"/><path d="M160 300 L152 370"/><path d="M260 80 L252 150"/>
+    <path d="M110 480 L102 550"/><path d="M880 160 L872 230"/><path d="M960 360 L952 430"/>
+    <path d="M820 420 L812 490"/><path d="M720 120 L712 190"/><path d="M300 380 L292 450"/>
+    <path d="M940 880 L932 950"/><path d="M80 900 L72 970"/>
+  </g>
+  <!-- rain: bright in the light cone -->
+  <g clip-path="url(#lit)" stroke="#fff0f8" stroke-width="2" stroke-linecap="round" opacity="0.7">
+    <path d="M500 420 L492 480"/><path d="M540 470 L532 530"/><path d="M470 560 L462 620"/>
+    <path d="M560 600 L552 660"/><path d="M430 700 L422 760"/><path d="M600 720 L592 780"/>
+    <path d="M520 640 L512 700"/><path d="M400 860 L392 920"/><path d="M630 860 L622 920"/>
+    <path d="M480 780 L472 840"/><path d="M570 520 L562 580"/><path d="M450 480 L442 540"/>
+  </g>
+
+  <!-- couple silhouettes, leaning in, sharing umbrella -->
+  <g fill="#0b0610">
+    <!-- umbrella -->
+    <path d="M360 760 Q470 650 590 760 Q560 748 530 760 Q500 746 475 760 Q445 746 418 760 Q390 748 360 760 Z"/>
+    <path d="M475 700 L475 690" stroke="#0b0610" stroke-width="4"/>
+    <path d="M478 760 L478 850" stroke="#0b0610" stroke-width="5"/>
+    <!-- left figure (long coat) -->
+    <ellipse cx="438" cy="808" rx="24" ry="29"/>
+    <path d="M420 834 L456 834 Q486 846 490 880 L496 1000 L484 1110 L466 1110 L460 1030 L446 1030 L440 1110 L420 1110 L412 1000 L406 900 Q404 848 420 834 Z"/>
+    <!-- right figure (dress/coat) -->
+    <ellipse cx="514" cy="816" rx="22" ry="27"/>
+    <path d="M500 840 L530 840 Q554 852 556 890 L560 960 L586 1080 L536 1080 L534 1110 L518 1110 L516 1080 L486 1080 L494 960 Q486 900 500 840 Z"/>
+  </g>
+  <!-- rim light -->
+  <g fill="none" stroke="#ffc6e2" stroke-width="2.5" opacity="0.8">
+    <path d="M362 758 Q470 652 588 758"/>
+    <path d="M492 880 L497 1000"/><path d="M536 840 Q556 852 557 890"/>
+  </g>
+  <!-- reflection in puddle -->
+  <g fill="#ff9ac8" opacity="0.18">
+    <path d="M420 1124 L496 1124 L486 1220 L430 1220 Z"/>
+    <path d="M490 1124 L580 1124 L560 1200 L506 1200 Z"/>
+  </g>
+
+  <rect y="1050" width="1024" height="486" fill="url(#fade)"/>
+</svg>
