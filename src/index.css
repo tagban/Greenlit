@@ -235,3 +235,8 @@ input[type='range'] { width: 100%; accent-color: var(--accent); height: 28px; }
 
 a.button { display: inline-flex; align-items: center; justify-content: center; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-height: 44px; color: var(--text); text-decoration: none; }
 .news { font-family: Georgia, 'Times New Roman', serif; font-style: italic; margin: 0 0 8px; }
+
+.run-head { display: grid; grid-template-columns: 72px 1fr; gap: 12px; align-items: center; }
+.run-head h1 { margin: 0; font-size: 1.3rem; }
+.run-log { font-size: 0.9rem; color: var(--soft-text); }
+button.ghost { width: 100%; margin-top: 8px; background: none; border: 0; color: var(--muted); text-decoration: underline; min-height: 36px; }

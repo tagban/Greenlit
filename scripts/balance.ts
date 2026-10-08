@@ -2,7 +2,7 @@
 // Run with: npx tsx scripts/balance.ts
 import { newGame, talentFee, willWork } from '../src/game/world'
 import { newFilm, scriptOffers, releaseCalendar, backerBids, pitchScore } from '../src/game/sim'
-import { acceptFinancing, chooseScript, confirmCast, startProduction, resolveEvent, wrapProduction, finishPost, releaseFilm, closeFilm } from '../src/game/store'
+import { skipToEnd, acceptFinancing, chooseScript, confirmCast, startProduction, resolveEvent, wrapProduction, finishPost, releaseFilm, closeFilm } from '../src/game/store'
 import { money } from '../src/game/text'
 import type { Game, Film } from '../src/game/types'
 import { subgenreById, type GenreId } from '../src/game/data'
@@ -35,7 +35,7 @@ function play(game: Game, plan: Plan): Game {
   const film = { ...g.current!, marketing: { tv: plan.mkt * 0.4, print: plan.mkt * 0.1, web: plan.mkt * 0.4, trailer: plan.mkt * 0.1 }, release: { monthOffset: 2, screens: plan.screens } }
   const slot = releaseCalendar(g, film, g.week).find((s) => s.offset === 2)!
   const cashBefore = g.cash
-  g = releaseFilm(g, film, slot)
+  g = skipToEnd(releaseFilm(g, film, slot))
   const r = g.current!.result!
   console.log(`${plan.name.padEnd(14)} ${deal.padEnd(22)} Q${String(r.quality).padStart(3)} crit ${String(r.criticScore).padStart(3)}% hype ${r.hype.toFixed(2)} open ${money(r.opening).padStart(7)} dom ${money(r.domestic).padStart(7)} cost ${money(r.totalCost).padStart(7)} profit ${money(r.profit).padStart(7)} | cash ${money(cashBefore)}→${money(g.cash)} debt ${money(g.debt)} rep ${g.reputation}${g.bankrupt ? " BANKRUPT" : ""}`)
   return closeFilm(g)

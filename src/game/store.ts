@@ -5,10 +5,11 @@ import { START_YEAR, overheadFor } from './data'
 import { clamp } from './rng'
 import {
   POST_WEEKS, PRINT_COST, grade, filmQuality, marketingTotal, productionCost, reshootCost,
-  simulateRelease, talentCost, type MonthSlot,
+  talentCost, type MonthSlot,
 } from './sim'
 import { getImages, putImage } from '../images'
 import { applyEventOutcomes, rollProductionEvents } from './events'
+import { answerRunEvent, finishRun, openRun, stepRun } from './theaters'
 import type { Bid, Film, Game } from './types'
 import { advanceWeeks, campaignOver, yearOf } from './world'
 
@@ -150,19 +151,58 @@ export function releaseFilm(game: Game, film: Film, slot: MonthSlot): Game {
   const costed: Film = { ...film, costs: { ...film.costs, marketing, prints } }
   let g = withFilm(game, costed, marketing + prints)
   const targetWeek = (slot.year - START_YEAR) * 52 + Math.round((slot.month * 52) / 12)
-  g = passTime(g, Math.max(0, targetWeek - g.week))
+  g = passTime(g, Math.max(0, targetWeek - g.week) + 1)
   const paid = g.current!
-  const result = simulateRelease(g, paid, slot)
-  const done: Film = { ...paid, result, stage: 'results' }
+  const run = openRun(g, paid, slot)
+  const next = withFilm(g, { ...paid, run, stage: 'theaters' })
+  return run.done ? finishRelease(next) : next
+}
+
+// Answer a promotion event during the run (talk show, rival opening, ...).
+export function answerPromotion(game: Game, choice: number): Game {
+  const film = game.current!
+  const run = film.run!
+  const option = run.pending?.choices[choice]
+  if (!option) return game
+  const { run: answered, rep } = answerRunEvent(game, film, run, choice)
+  const next = { ...film, run: answered, costs: { ...film.costs, marketing: film.costs.marketing + option.cost } }
+  return { ...withFilm(game, next, option.cost), reputation: clamp(game.reputation + rep, 0, 100) }
+}
+
+// Play the next week of the run, optionally with extra advertising.
+export function nextWeek(game: Game, adSpend = 0): Game {
+  const film = game.current!
+  if (!film.run || film.run.done) return finishRelease(game)
+  let g = game
+  if (film.run.pending) {
+    // Skipping an event takes the free option.
+    const free = film.run.pending.choices.findIndex((c) => c.cost === 0)
+    g = answerPromotion(g, Math.max(0, free))
+  }
+  const f = g.current!
+  const run = stepRun(g, f, f.run!, adSpend)
+  g = withFilm(g, { ...f, run, costs: { ...f.costs, marketing: f.costs.marketing + adSpend } }, adSpend)
+  g = passTime(g, 1)
+  return run.done ? finishRelease(g) : g
+}
+
+export function skipToEnd(game: Game): Game {
+  let g = game
+  for (let i = 0; i < 25 && g.current?.stage === 'theaters'; i++) g = nextWeek(g)
+  return g
+}
+
+// The run is over: settle the money and let the industry react.
+export function finishRelease(game: Game): Game {
+  const film = game.current!
+  const result = finishRun(film, film.run!)
+  const done: Film = { ...film, result, stage: 'results' }
   const hired = new Set([film.directorId, film.composerId, ...film.leadIds, ...film.supportIds])
-  const firm = film.events.some((e) => e.title.includes('trailer') && e.chosen === 1)
   const happy = result.profit > 0 || result.quality >= 60
-  const talent = g.talent.map((t) => {
+  const talent = game.talent.map((t) => {
     if (!hired.has(t.id)) return t
-    let rel = t.relationship + (happy ? 10 : -5)
-    if (firm && t.id === film.leadIds[0]) rel -= 15
     const starBump = result.domestic > 50_000_000 ? 4 : result.domestic > 10_000_000 ? 2 : result.quality < 35 ? -2 : 0
-    return { ...t, relationship: clamp(rel, -100, 100), star: clamp(t.star + starBump, 1, 99) }
+    return { ...t, relationship: clamp(t.relationship + (happy ? 10 : -5), -100, 100), star: clamp(t.star + starBump, 1, 99) }
   })
   const roi = (result.studioRevenue + result.ancillary) / Math.max(1, result.totalCost)
   const repDelta = (result.quality - 45) / 6 + (roi >= 1 ? 2 : roi < 0.5 ? -4 : -1) + (result.domestic > 25_000_000 ? 4 : result.domestic > 5_000_000 ? 2 : 0)
@@ -170,10 +210,10 @@ export function releaseFilm(game: Game, film: Film, slot: MonthSlot): Game {
   const backerRel = { ...(game.backerRel ?? {}) }
   if (film.financing) backerRel[film.financing.backer] = clamp((backerRel[film.financing.backer] ?? 0) + (roi >= 1.5 ? 8 : roi < 0.7 ? -10 : 0), -30, 30)
   return coverOverdraft({
-    ...g,
+    ...game,
     talent,
-    cash: g.cash + result.studioRevenue + result.ancillary - result.partnerCut,
-    reputation: clamp(Math.round(g.reputation + repDelta), 0, 100),
+    cash: game.cash + result.studioRevenue + result.ancillary - result.partnerCut,
+    reputation: clamp(Math.round(game.reputation + repDelta), 0, 100),
     backerRel,
     current: done,
   })

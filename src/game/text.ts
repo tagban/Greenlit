@@ -109,7 +109,7 @@ export function writeBreakdown(film: Film, r: FilmResult, w: Weights, trend: num
   if (slot.season > 1.1) lines.push(`${MONTHS[slot.month]} is prime season for this kind of film.`)
   else if (slot.season < 1) lines.push(`${MONTHS[slot.month]} was the wrong month for it.`)
   if (slot.competition > 0.6) lines.push(`Heavy competition that month split the audience.`)
-  if (booked < film.release.screens) lines.push(`Low hype meant theaters only booked ${booked.toLocaleString()} of the ${film.release.screens.toLocaleString()} screens you wanted. More marketing or bigger stars fix that.`)
+  if (booked < film.release.screens * 0.9) lines.push(`Low hype meant theaters only booked ${booked.toLocaleString()} of the ${film.release.screens.toLocaleString()} screens you wanted. More marketing or bigger stars fix that.`)
   for (const e of film.events) {
     const c = e.chosen === undefined ? undefined : e.choices[e.chosen]
     if (c?.aftermath) lines.push(c.aftermath)

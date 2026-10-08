@@ -1,7 +1,6 @@
 import { BACKERS, DEPTS, GENRES, MONTHS, RIVAL_STUDIOS, RIVAL_TITLE_A, RIVAL_TITLE_B, SUBGENRES, subgenreById, type Dept, type Weights } from './data'
 import { clamp, hashSeed, makeRng } from './rng'
-import { reviewFilm, writeBreakdown, writeHeadline } from './text'
-import type { Bid, Film, FilmResult, Game, ScriptOffer, Talent } from './types'
+import type { Bid, Film, Game, ScriptOffer, Talent } from './types'
 import { monthOf, talentFee, yearOf } from './world'
 
 export const SCREEN_OPTIONS = [
@@ -228,72 +227,4 @@ export function computeHype(game: Game, film: Film): number {
   const sub = subgenreById(film.subgenre)
   const keyword = (text.includes(game.hotKeyword) ? 0.12 : 0) + (sub && sub.keywords.some((k) => text.includes(k)) ? 0.05 : 0)
   return Math.max(0.15, 0.3 + ((leadStar + directorStar * 0.4) / 100) * 1.1 + marketing + (trend - 1) * 0.8 + keyword + (film.hypeBonus ?? 0))
-}
-
-export function simulateRelease(game: Game, film: Film, slot: MonthSlot): FilmResult {
-  const rng = makeRng(hashSeed(film.seed, 'boxoffice'))
-  const { quality, scores } = filmQuality(film, game.talent)
-  const hype = computeHype(game, film)
-  const trend = trendFor(game, film)
-  const { reviews, criticScore } = reviewFilm(film, quality, trend, scores, rng)
-  // Audiences are unpredictable: every film rolls a reception factor that can sink a
-  // good film or lift a modest one. Most films land near 1; a few flop or break out.
-  const reception = Math.exp(rng.normal(-0.12, 0.42))
-  const appeal = Math.pow(trend, 0.6) * (0.6 + (0.6 * quality) / 100) * slot.season * (1 - slot.competition * 0.4) * reception
-  const bookable = Math.round(Math.min(film.release.screens, 250 + hype * 1300))
-  let perScreen = 2000 * hype * appeal * rng.range(0.9, 1.1)
-  let hold = 0.28 + (0.45 * quality) / 100 + (criticScore - 50) / 600 + (reception - 1) * 0.05 - Math.max(0, hype - 2) * 0.03 + rng.normal(0, 0.03)
-  if (film.subgenre === 'parody' && trend < 1) hold -= 0.05 // stale target
-  hold = clamp(hold, 0.22, 0.8)
-  // Word of mouth: only films critics and audiences both like get booked into more
-  // theaters, and even a sleeper hit grows to at most two and a half times its opening count.
-  const buzz = criticScore >= 60 && quality >= 55 && reception > 0.9 ? (criticScore - 58) / 100 + (quality - 55) / 100 : 0
-  const maxScreens = Math.min(3800, Math.round(bookable * 2.5))
-  let screens = bookable
-  let peakScreens = bookable
-  const weekly: number[] = []
-  while (weekly.length < 20) {
-    const gross = Math.round(screens * perScreen)
-    if (weekly.length > 0 && gross < 40_000) break
-    weekly.push(gross)
-    if (weekly.length < 5 && buzz > 0) screens = Math.min(maxScreens, Math.round(screens * (1 + buzz * 1.1)))
-    else if (perScreen < 1500) screens = Math.max(50, Math.round(screens * 0.75))
-    peakScreens = Math.max(peakScreens, screens)
-    perScreen *= clamp(hold + (buzz > 0 && weekly.length < 5 ? 0.05 : 0) + rng.normal(0, 0.02), 0.2, 0.9)
-  }
-  const opening = weekly[0]
-  const domestic = weekly.reduce((a, b) => a + b, 0)
-  const intl = film.genre === 'action' || film.genre === 'scifi' ? 1.3 : film.genre === 'horror' ? 1.1 : film.genre === 'comedy' ? 0.8 : 0.95
-  const studioRevenue = Math.round(domestic * 0.5)
-  const ancillary = Math.round(domestic * (0.15 + (0.3 * quality) / 100) * intl)
-  const cost = totalCost(film)
-  const funded = film.financing?.used ?? 0
-  // Recoupment: the backer is paid back what it put in first, then takes its share of the rest.
-  const gross = studioRevenue + ancillary
-  const partnerCut = film.financing ? Math.round(Math.min(gross, funded) + Math.max(0, gross - funded) * film.financing.share) : 0
-  const result: FilmResult = {
-    quality,
-    deptScores: scores,
-    hype,
-    opening,
-    weekly,
-    domestic,
-    ancillary,
-    studioRevenue,
-    totalCost: cost,
-    profit: studioRevenue + ancillary - partnerCut - (cost - funded),
-    funded,
-    partnerCut,
-    reviews,
-    criticScore,
-    peakScreens,
-    reception,
-    headline: '',
-    breakdown: [],
-    releaseYear: slot.year,
-    releaseMonth: slot.month,
-  }
-  result.headline = writeHeadline(film, result, rng, bookable < film.release.screens ? bookable : undefined)
-  result.breakdown = writeBreakdown(film, result, filmWeights(film), trend, slot, bookable)
-  return result
 }

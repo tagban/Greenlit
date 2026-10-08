@@ -3,7 +3,7 @@
 import { GENRE_IDS, SUBGENRES } from '../src/game/data'
 import { makeRng } from '../src/game/rng'
 import { backerBids, newFilm, releaseCalendar, scriptOffers } from '../src/game/sim'
-import { acceptFinancing, chooseScript, confirmCast, finishPost, releaseFilm, resolveEvent, startProduction, wrapProduction } from '../src/game/store'
+import { skipToEnd, acceptFinancing, chooseScript, confirmCast, finishPost, releaseFilm, resolveEvent, startProduction, wrapProduction } from '../src/game/store'
 import { money } from '../src/game/text'
 import type { Game } from '../src/game/types'
 import { newGame, talentFee, willWork } from '../src/game/world'
@@ -42,7 +42,7 @@ function playOne(seed: number, style: Style): { profit: number; domestic: number
   const slot = style === 'smart' ? slots.reduce((a, b) => (b.season - b.competition > a.season - a.competition ? b : a)) : slots[0]
   const prints = film.release.screens * 250
   if (mkt + prints > remaining()) film.release.screens = 400
-  g = releaseFilm(g, { ...film, release: { ...film.release, monthOffset: slot.offset } }, slot)
+  g = skipToEnd(releaseFilm(g, { ...film, release: { ...film.release, monthOffset: slot.offset } }, slot))
   const res = g.current!.result!
   return { profit: res.profit, domestic: res.domestic, cost: res.totalCost, roi: (res.studioRevenue + res.ancillary) / res.totalCost }
 }

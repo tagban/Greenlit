@@ -1,4 +1,5 @@
 import type { Dept, GenreId } from './data'
+import type { RunState } from './theaters'
 
 export type Role = 'actor' | 'director' | 'composer'
 
@@ -111,8 +112,9 @@ export type Film = {
   marketing: Marketing
   release: ReleasePlan
   costs: { script: number; talent: number; production: number; events: number; post: number; marketing: number; prints: number }
+  run?: RunState // the theatrical run while it's playing
   result?: FilmResult
-  stage: 'pitch' | 'financing' | 'script' | 'cast' | 'budget' | 'production' | 'post' | 'release' | 'results' | 'done'
+  stage: 'pitch' | 'financing' | 'script' | 'cast' | 'budget' | 'production' | 'post' | 'release' | 'theaters' | 'results' | 'done'
 }
 
 export type Studio = {

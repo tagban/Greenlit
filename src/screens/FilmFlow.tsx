@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
-import { DEPTS, DEPT_LABEL, GENRES, GENRE_IDS, SUBGENRES, subgenreById, type GenreId } from '../game/data'
+import { DEPTS, DEPT_LABEL, GENRES, GENRE_IDS, MONTHS, SUBGENRES, subgenreById, type GenreId } from '../game/data'
+import { AD_OPTIONS, adBoostFor } from '../game/theaters'
 import {
   CREW_WEEKLY, MUSIC_SCALE, backerBids, pitchScore, PRINT_COST, SCREEN_OPTIONS, TECH_SCALE, computeHype, deptScores, filmWeights, marketingTotal, monthLabel, normalShoot, productionCost,
   releaseCalendar, reshootCost, scriptOffers, talentCost, trendFor,
 } from '../game/sim'
 import {
   LOAN_LIMIT, LOAN_STEP, acceptFinancing, backerLeft, chooseScript, eventCosts, closeFilm, confirmCast, finishPost, isClean, releaseFilm, resolveEvent,
-  setPoster, startProduction, takeLoan, wrapProduction,
+  answerPromotion, nextWeek, setPoster, skipToEnd, startProduction, takeLoan, wrapProduction,
 } from '../game/store'
 import { money } from '../game/text'
 import type { Film, Game, Talent } from '../game/types'
@@ -27,6 +28,7 @@ export default function FilmFlow({ game, setGame }: Props) {
     production: <Production film={film} game={game} setGame={setGame} />,
     post: <Post film={film} game={game} setGame={setGame} />,
     release: <Release film={film} game={game} setGame={setGame} update={update} />,
+    theaters: <Theaters film={film} game={game} setGame={setGame} />,
     results: <Results film={film} game={game} setGame={setGame} />,
     done: null,
   }[film.stage]
@@ -440,7 +442,68 @@ function Release({ film, game, setGame, update }: Props & { film: Film; update: 
   )
 }
 
-// ---------- 8. Results ----------
+// ---------- 8. In theaters ----------
+
+function Theaters({ film, game, setGame }: Props & { film: Film }) {
+  const run = film.run!
+  const [ads, setAds] = useState(0)
+  const total = run.weekly.reduce((a, b) => a + b, 0)
+  const maxWeek = Math.max(...run.weekly)
+  const funds = fundsOf(game)
+  const lift = Math.round(adBoostFor(run, ads) * 100)
+  return (
+    <section>
+      <div className="run-head">
+        <Poster genre={film.genre} posterId={film.posterId} small />
+        <div>
+          <h1>“{film.title}”</h1>
+          <div className="muted">Week {run.week} in theaters · {MONTHS[run.slot.month]} {run.slot.year}</div>
+        </div>
+      </div>
+      <div className="stats">
+        <Stat label={run.week === 1 ? 'Opening weekend' : `Week ${run.week}`} value={money(run.weekly[run.weekly.length - 1])} />
+        <Stat label="Total so far" value={money(total)} />
+        <Stat label="Screens" value={run.screens.toLocaleString()} />
+        <Stat label="Critics" value={`${run.criticScore}%`} tone={run.criticScore >= 60 ? 'good' : run.criticScore < 40 ? 'bad' : undefined} />
+      </div>
+      <div className="bars" role="img" aria-label={`Box office over ${run.weekly.length} weeks`}>
+        {run.weekly.map((w, i) => <div key={i} className="bar" style={{ height: `${(w / maxWeek) * 100}%` }} title={`Week ${i + 1}: ${money(w)}`} />)}
+      </div>
+      <ul className="breakdown run-log">{[...run.log].reverse().slice(0, 4).map((l, i) => <li key={i}>{l}</li>)}</ul>
+      {run.pending && (
+        <div className="event active">
+          <h3>{run.pending.title}</h3>
+          <p>{run.pending.text}</p>
+          <div className="choices">
+            {run.pending.choices.map((c, i) => (
+              <button key={i} disabled={c.cost > funds} onClick={() => setGame(answerPromotion(game, i))}>
+                <strong>{c.label}</strong>
+                <span>{c.cost ? money(c.cost) : 'Free'} · {c.note}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <h3>Extra advertising this week</h3>
+      <div className="months">
+        {[0, ...AD_OPTIONS(run)].map((a) => (
+          <button key={a} className={ads === a ? 'selected' : ''} disabled={a > funds} onClick={() => setAds(a)}>
+            <strong>{a ? money(a) : 'None'}</strong>
+            {a > 0 && <span className="muted">about +{Math.round(adBoostFor(run, a) * 100)}%</span>}
+          </button>
+        ))}
+      </div>
+      <div className="sticky-footer">
+        <button className="primary" disabled={!!run.pending || ads > funds} onClick={() => { setGame(nextWeek(game, ads)); setAds(0) }}>
+          {run.pending ? 'Decide on the event first' : `Next week${ads ? ` (+${lift}% from ads)` : ''}`}
+        </button>
+        <button className="ghost" onClick={() => setGame(skipToEnd(game))}>Skip to the end of the run</button>
+      </div>
+    </section>
+  )
+}
+
+// ---------- 9. Results ----------
 
 function Results({ film, game, setGame }: Props & { film: Film }) {
   const r = film.result!
