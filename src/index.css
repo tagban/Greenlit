@@ -240,3 +240,5 @@ a.button { display: inline-flex; align-items: center; justify-content: center; b
 .run-head h1 { margin: 0; font-size: 1.3rem; }
 .run-log { font-size: 0.9rem; color: var(--soft-text); }
 button.ghost { width: 100%; margin-top: 8px; background: none; border: 0; color: var(--muted); text-decoration: underline; min-height: 36px; }
+.save-row { align-items: center; }
+.upload.as-button { border: 1px solid var(--line); font-size: 1rem; }

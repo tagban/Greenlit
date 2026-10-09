@@ -35,12 +35,19 @@ export function loadGame(): Game | undefined {
   }
 }
 
-export function saveGame(game: Game | undefined) {
+let lastSaved: number | undefined
+export const lastSavedAt = () => lastSaved
+
+// Writes the game to this device. Returns false when storage is unavailable (private mode);
+// the game still plays, it just can't be resumed later without an exported file.
+export function saveGame(game: Game | undefined): boolean {
   try {
     if (game) localStorage.setItem(SAVE_KEY, JSON.stringify(game))
     else localStorage.removeItem(SAVE_KEY)
+    lastSaved = Date.now()
+    return true
   } catch {
-    // Storage can be unavailable (private mode); the game still plays.
+    return false
   }
 }
 

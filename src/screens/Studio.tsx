@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CAMPAIGN_YEARS, DEPTS, DEPT_LABEL, GENRES, GENRE_IDS, MONTHS, SUBGENRES, START_YEAR, subgenreById, type GenreId } from '../game/data'
 import { filmWeights, newFilm } from '../game/sim'
-import { LOAN_LIMIT, LOAN_STEP, canStartFilm, setPoster, exportSave, importSave, isClean, lifetimeGross, repayLoan, takeLoan } from '../game/store'
+import { LOAN_LIMIT, LOAN_STEP, canStartFilm, lastSavedAt, saveGame, setPoster, exportSave, importSave, isClean, lifetimeGross, repayLoan, takeLoan } from '../game/store'
 import { money } from '../game/text'
 import type { Game, Role } from '../game/types'
 import { campaignOver, monthOf, newGame, yearOf } from '../game/world'
@@ -34,7 +34,7 @@ export function NewStudio({ onCreate, onImport }: { onCreate: (g: Game) => void;
       {!clean && <em className="bad">Pick names you’d be happy to see on a leaderboard.</em>}
       <button className="primary" disabled={!ready} onClick={() => onCreate(newGame(name.trim(), owner.trim()))}>Open the studio</button>
       <label className="link import">
-        Restore a save file
+        Import a saved studio from a file
         <input type="file" accept="application/json" hidden onChange={async (e) => {
           const file = e.target.files?.[0]
           if (!file) return
@@ -227,6 +227,8 @@ export function Settings({ game, setGame }: Props) {
   const [theme, setTheme] = useState<Theme>(loadTheme)
   const [confirm, setConfirm] = useState(false)
   const [show, setShow] = useState(false)
+  const [saveNote, setSaveNote] = useState('')
+  const [savedAt, setSavedAt] = useState(lastSavedAt)
   return (
     <section>
       <h1>Studio office</h1>
@@ -252,9 +254,35 @@ export function Settings({ game, setGame }: Props) {
       <h3>Leaderboard identity</h3>
       <p className="muted small">Your studio is listed as <strong>{game.studio.name} #{game.studio.tag}</strong>. The recovery code restores your leaderboard spot on another device. Keep it private.</p>
       <button onClick={() => setShow(!show)}>{show ? game.studio.recovery : 'Show recovery code'}</button>
-      <h3>Save file</h3>
-      <p className="muted small">The game saves automatically on this device. Export a copy to move to another device or keep a backup.</p>
-      <button onClick={() => exportSave(game)}>Export save</button>
+      <h3>Save</h3>
+      <p className="muted small">The game also saves to this device automatically after every move.{savedAt ? ` Last saved at ${new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}.` : ''}</p>
+      <div className="row save-row">
+        <button className="share" onClick={() => {
+          const ok = saveGame(game)
+          setSaveNote(ok ? 'Saved ✓' : 'Couldn’t save on this device (private browsing?). Export to a file instead.')
+          setSavedAt(lastSavedAt())
+        }}>Save game</button>
+        {saveNote && <span className={`small ${saveNote.startsWith('Saved') ? 'good' : 'bad'}`}>{saveNote}</span>}
+      </div>
+      <h3>Export and import</h3>
+      <p className="muted small">Export writes your studio, posters included, to a file. Keep it as a backup or import it on another device.</p>
+      <div className="row">
+        <button onClick={() => exportSave(game)}>Export to file</button>
+        <label className="upload as-button">
+          Import from file
+          <input type="file" accept="application/json" hidden onChange={async (e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (!file) return
+            try {
+              const imported = await importSave(file)
+              if (window.confirm(`Replace ${game.studio.name} with ${imported.studio.name} from the file?`)) setGame(imported)
+            } catch {
+              setSaveNote('That file isn’t a Greenlit save.')
+            }
+          }} />
+        </label>
+      </div>
       <h3>Start over</h3>
       {confirm ? (
         <div className="row">
