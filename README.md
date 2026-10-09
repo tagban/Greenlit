@@ -24,11 +24,18 @@ downloaded files nor packs are ever committed or hosted (see `.gitignore`).
 
 Use **Report a bug** in the game's Office screen, or [open an issue](https://github.com/tagban/Greenlit/issues/new/choose).
 
+## Download
+
+Desktop (Windows, macOS, Linux) and Android builds are on the [Releases page](https://github.com/tagban/Greenlit/releases).
+Builds are made by `.github/workflows/release.yml` whenever a `v*` tag is pushed. iOS builds need an
+Apple Developer account for signing and aren't published yet.
+
 ## Run it locally
 
 ```bash
 npm install
-npm run dev
+npm run dev          # browser
+npm run tauri dev    # desktop app (needs Rust)
 ```
 
 ## Project layout

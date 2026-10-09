@@ -1,0 +1,99 @@
+# Builds the game for Windows, macOS, Linux and Android and publishes a GitHub Release.
+# Run it by pushing a version tag:  git tag v0.1.0 && git push origin v0.1.0
+name: Release builds
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+          - platform: ubuntu-22.04
+            args: ''
+          - platform: windows-latest
+            args: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - name: Linux build dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Greenlit ${{ github.ref_name }}
+          releaseBody: |
+            Free movie studio sim. Play in the browser at https://tagban.github.io/Greenlit/ or download a build below.
+
+            - **Windows:** run the `.msi` or `-setup.exe`. Windows may warn about an unrecognized app; choose More info, then Run anyway.
+            - **macOS:** open the `.dmg` and drag Greenlit to Applications. The first time, right-click the app and choose Open (the build isn't notarized yet).
+            - **Linux:** the `.AppImage` runs anywhere (mark it executable); `.deb` installs on Debian and Ubuntu.
+            - **Android:** install `greenlit-android.apk` (allow installs from your browser or file manager).
+
+            Found a bug? Use **Report a bug** in the game's Office screen.
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  android:
+    needs: desktop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: Install the Android NDK
+        run: sdkmanager "ndk;27.0.12077973"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Build the APK
+        env:
+          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.0.12077973
+        run: |
+          npx tauri android init --ci
+          npx tauri android build --apk --debug
+      - name: Attach the APK to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          apk=$(find src-tauri/gen/android -name '*universal*debug*.apk' | head -1)
+          cp "$apk" greenlit-android.apk
+          gh release upload "${{ github.ref_name }}" greenlit-android.apk --clobber

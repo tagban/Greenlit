@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1e26"/><stop offset="1" stop-color="#0b0c10"/></linearGradient></defs>
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <svg x="152" y="140" width="720" height="720" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="g" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#b8ffcf"/>
+      <stop offset="0.35" stop-color="#3ee07a"/>
+      <stop offset="1" stop-color="#3ee07a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="board" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2f36"/>
+      <stop offset="1" stop-color="#15181c"/>
+    </linearGradient>
+  </defs>
+  <!-- green light glow -->
+  <circle cx="370" cy="150" r="130" fill="url(#g)" opacity="0.7"/>
+  <!-- clapper arm (open) -->
+  <g transform="rotate(-18 96 200)">
+    <rect x="96" y="160" width="320" height="56" rx="8" fill="#e9edf1"/>
+    <g fill="#15181c">
+      <path d="M136 160 L180 160 L148 216 L104 216 Z"/>
+      <path d="M220 160 L264 160 L232 216 L188 216 Z"/>
+      <path d="M304 160 L348 160 L316 216 L272 216 Z"/>
+      <path d="M388 160 L416 160 L416 168 L400 216 L356 216 Z"/>
+    </g>
+  </g>
+  <circle cx="104" cy="226" r="12" fill="#9aa3ad"/>
+  <!-- slate body -->
+  <rect x="96" y="236" width="320" height="200" rx="18" fill="url(#board)" stroke="#e9edf1" stroke-width="8"/>
+  <rect x="96" y="236" width="320" height="52" rx="10" fill="#e9edf1"/>
+  <g fill="#15181c">
+    <path d="M136 236 L180 236 L148 288 L104 288 Z"/>
+    <path d="M220 236 L264 236 L232 288 L188 288 Z"/>
+    <path d="M304 236 L348 236 L316 288 L272 288 Z"/>
+    <path d="M388 236 L416 236 L416 244 L400 288 L356 288 Z"/>
+  </g>
+  <!-- green-light lamp -->
+  <circle cx="370" cy="150" r="30" fill="#3ee07a" stroke="#0e3a1f" stroke-width="5"/>
+  <circle cx="361" cy="141" r="9" fill="#d9ffe6"/>
+  <!-- checkmark / go mark on slate -->
+  <path d="M190 362 L236 404 L328 316" fill="none" stroke="#3ee07a" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+</svg>

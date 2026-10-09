@@ -13,7 +13,7 @@ export type PackPerson = { id: string; n: string; r: 'a' | 'd' | 'c'; b: number 
 export type TalentPack = { format: 'greenlit-talent-pack'; version: 1; source: string; built: string; people: PackPerson[] }
 
 const ROLE: Record<PackPerson['r'], Role> = { a: 'actor', d: 'director', c: 'composer' }
-const ROSTER = { actor: [130, 50], director: [40, 15], composer: [18, 6] } as const // [top by fame, extra unknowns]
+const ROSTER = { actor: [130, 25, 25, 25], director: [40, 8, 8, 6], composer: [18, 3, 3, 3] } as const // [top by fame, newcomers, about to break out, lesser-known]
 
 // ---------- Storage (IndexedDB; packs are a few MB) ----------
 
@@ -91,7 +91,7 @@ function snapshot(p: PackPerson, year: number): Snapshot | undefined {
   const fit = Object.fromEntries(GENRE_IDS.map((g, i) => [g, Math.round(40 + (55 * counts[i]) / most)])) as Record<GenreId, number>
   const debut = p.f[0][0]
   const age = p.b ? year - p.b : year - debut + 24
-  return { p, fame, skill: clamp(Math.round((rating - 5) * 20 + 40), 15, 98), fit, age, debut }
+  return { p, fame, skill: clamp(Math.round((rating - 5) * 15 + 30), 15, 95), fit, age, debut }
 }
 
 // Build the year's roster: the most famous active people plus some lesser-known ones,
@@ -104,13 +104,24 @@ export function rosterForYear(pack: TalentPack, year: number, previous: Talent[]
     snaps.sort((a, b) => b.fame - a.fame)
     // Star power is a ranking: the top 1% are megastars, the median is a working actor.
     const n = snaps.length
-    const star = (i: number) => clamp(Math.round(5 + 90 * Math.pow(1 - i / Math.max(1, n - 1), 3)), 1, 99)
-    const [top, extra] = ROSTER[role]
+    const star = (i: number) => clamp(Math.round(5 + 90 * Math.pow(1 - i / Math.max(1, n - 1), 4)), 1, 99)
+    const [top, newcomers, risers, extra] = ROSTER[role]
     const picked = new Set<number>()
     for (let i = 0; i < Math.min(top, n); i++) picked.add(i)
+    // Newcomers: the best-known people who debuted in the last four years. Future stars
+    // show up here while they're still cheap.
+    snaps.map((s, i) => ({ s, i })).filter(({ s, i }) => i >= top && year - s.debut <= 4).slice(0, newcomers).forEach(({ i }) => picked.add(i))
+    // About to break out: people the real future makes famous within six years. The game
+    // doesn't flag them; players who know their film history can sign them cheap.
+    const later = new Map(pack.people.filter((p) => ROLE[p.r] === role).map((p) => [p.id, snapshot(p, year + 6)?.fame ?? 0]))
+    snaps.map((s, i) => ({ s, i, gain: (later.get(s.p.id) ?? 0) - s.fame }))
+      .filter(({ i }) => i >= top && !picked.has(i))
+      .sort((a, b) => b.gain - a.gain)
+      .slice(0, risers)
+      .forEach(({ i }) => picked.add(i))
     // Lesser-known talent, spread evenly through the rest so the pick is stable year to year.
     const step = Math.max(1, Math.floor((n - top) / Math.max(1, extra)))
-    for (let i = top; i < n && picked.size < top + extra; i += step) picked.add(i)
+    for (let i = top, added = 0; i < n && added < extra; i += step) if (!picked.has(i)) { picked.add(i); added++ }
     snaps.forEach((s, i) => {
       const known = keepIds.has(s.p.id) || (prev.get(s.p.id)?.relationship ?? 0) !== 0
       if (!picked.has(i) && !known) return
