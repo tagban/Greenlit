@@ -58,7 +58,7 @@ jobs:
             - **Windows:** run the `.msi` or `-setup.exe`. Windows may warn about an unrecognized app; choose More info, then Run anyway.
             - **macOS:** open the `.dmg` and drag Greenlit to Applications. The first time, right-click the app and choose Open (the build isn't notarized yet).
             - **Linux:** the `.AppImage` runs anywhere (mark it executable); `.deb` installs on Debian and Ubuntu.
-            - **Android:** install `greenlit-android.apk` (allow installs from your browser or file manager).
+            - **Android:** install `greenlit-android.apk` (allow installs from your browser or file manager). Test builds use a temporary signing key: uninstall the previous version before installing a new one.
 
             Found a bug? Use **Report a bug** in the game's Office screen.
           releaseDraft: false
@@ -83,7 +83,7 @@ jobs:
           java-version: 17
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+          targets: aarch64-linux-android,armv7-linux-androideabi
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
@@ -93,11 +93,19 @@ jobs:
         run: |
           export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
           npx tauri android init --ci
-          npx tauri android build --apk --debug
+          npx tauri android build --apk --target aarch64 --target armv7
+      # Test builds are signed with a throwaway key made here, so they install but each new
+      # release must replace the old install. Store releases will need a permanent key.
+      - name: Sign the APK for testing
+        run: |
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          unsigned=$(find src-tauri/gen/android -name '*release-unsigned.apk' | head -1)
+          keytool -genkeypair -keystore test.jks -storepass greenlit -keypass greenlit -alias greenlit \
+            -keyalg RSA -keysize 2048 -validity 3650 -dname "CN=Greenlit test build"
+          "$tools/zipalign" -f 4 "$unsigned" aligned.apk
+          "$tools/apksigner" sign --ks test.jks --ks-pass pass:greenlit --out greenlit-android.apk aligned.apk
+          ls -la greenlit-android.apk
       - name: Attach the APK to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          apk=$(find src-tauri/gen/android -name '*universal*debug*.apk' | head -1)
-          cp "$apk" greenlit-android.apk
-          gh release upload "$RELEASE_TAG" greenlit-android.apk --clobber
+        run: gh release upload "$RELEASE_TAG" greenlit-android.apk --clobber
