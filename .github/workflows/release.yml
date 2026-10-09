@@ -6,12 +6,17 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to attach the Android build to (desktop builds are skipped)
+        required: true
 
 permissions:
   contents: write
 
 jobs:
   desktop:
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -62,7 +67,10 @@ jobs:
 
   android:
     needs: desktop
+    if: always() && (needs.desktop.result == 'success' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -73,9 +81,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
-      - name: Install the Android NDK
-        run: sdkmanager "ndk;27.0.12077973"
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
@@ -83,17 +88,16 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      # GitHub's Ubuntu runners come with the Android SDK and NDK already installed.
       - name: Build the APK
-        env:
-          NDK_HOME: ${{ env.ANDROID_SDK_ROOT }}/ndk/27.0.12077973
         run: |
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
           npx tauri android init --ci
           npx tauri android build --apk --debug
       - name: Attach the APK to the release
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           apk=$(find src-tauri/gen/android -name '*universal*debug*.apk' | head -1)
           cp "$apk" greenlit-android.apk
-          gh release upload "${{ github.ref_name }}" greenlit-android.apk --clobber
+          gh release upload "$RELEASE_TAG" greenlit-android.apk --clobber
