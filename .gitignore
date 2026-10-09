@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# IMDb data is for personal use only: never commit downloaded files or built talent packs
+*.tsv.gz
+*talent-pack*.json
+.imdb-cache/

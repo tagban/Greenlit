@@ -18,6 +18,7 @@ export type Talent = {
   debut?: number // year they joined the roster
   prevStar?: number // star power a year ago, for rising/fading arrows
   retired?: boolean
+  source?: 'imdb' // a real person from the player's talent pack
 }
 
 export type ScriptOffer = {
@@ -143,5 +144,6 @@ export type Game = {
   current?: Film
   lastPostedAt?: number
   bankrupt?: boolean
+  talentSource?: 'fictional' | 'imdb'
   backerRel?: Record<string, number> // how each backer feels about you after past deals
 }

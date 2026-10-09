@@ -1,5 +1,6 @@
 import { FIRST_NAMES, GENRE_IDS, LAST_NAMES, START_CASH, START_YEAR, SUBGENRES, CAMPAIGN_YEARS, type GenreId } from './data'
 import { historicTrend } from './history'
+import { currentPack, rosterForYear, type TalentPack } from '../talent/pack'
 import { clamp, hashSeed, makeRng, randomSeed, type Rng } from './rng'
 import type { Game, Role, Studio, Talent } from './types'
 
@@ -77,6 +78,17 @@ export function yearInTalent(seed: number, talent: Talent[], year: number): Tale
   return [...next, ...rookies]
 }
 
+// Real-people games rebuild the roster from the talent pack; fictional games evolve their own.
+function nextYearTalent(g: Game, year: number): Talent[] {
+  const pack = currentPack()
+  if (g.talentSource === 'imdb' && pack) {
+    const film = (f?: Game['current']) => (f ? [f.directorId, f.composerId, ...f.leadIds, ...f.supportIds] : [])
+    const keep = new Set([...g.films.flatMap(film), ...film(g.current)].filter(Boolean) as string[])
+    return rosterForYear(pack, year, g.talent, keep)
+  }
+  return yearInTalent(g.seed, g.talent, year)
+}
+
 export const activeTalent = (talent: Talent[]) => talent.filter((t) => !t.retired)
 
 export function rollTrends(seed: number, year: number, prev?: Record<string, number>): Record<string, number> {
@@ -125,7 +137,7 @@ export function makeStudio(name: string, owner: string): Studio {
   return { name, owner, id, key, tag, recovery }
 }
 
-export function newGame(name: string, owner: string): Game {
+export function newGame(name: string, owner: string, pack?: TalentPack): Game {
   const seed = randomSeed()
   const trends = rollTrends(seed, START_YEAR)
   return {
@@ -136,7 +148,8 @@ export function newGame(name: string, owner: string): Game {
     debt: 0,
     week: 0,
     reputation: 10,
-    talent: generateTalent(seed),
+    talent: pack ? rosterForYear(pack, START_YEAR) : generateTalent(seed),
+    talentSource: pack ? 'imdb' : 'fictional',
     trends,
     hotKeyword: pickHotKeyword(seed, START_YEAR, trends),
     films: [],
@@ -157,7 +170,7 @@ export function advanceWeeks(game: Game, weeks: number, overhead: number): Game 
     const after = yearOf(g.week)
     if (after !== before) {
       const trends = rollTrends(g.seed, after, g.trends)
-      g = { ...g, prevTrends: g.trends, trends, hotKeyword: pickHotKeyword(g.seed, after, trends), talent: yearInTalent(g.seed, g.talent, after) }
+      g = { ...g, prevTrends: g.trends, trends, hotKeyword: pickHotKeyword(g.seed, after, trends), talent: nextYearTalent(g, after) }
     }
   }
   return g

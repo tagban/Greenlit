@@ -8,6 +8,18 @@ Free forever, no accounts, plays offline in any browser and on phones.
 
 https://tagban.github.io/Greenlit/
 
+## Real actors (IMDb talent packs)
+
+Players can build a talent pack of real actors, directors and composers from
+[IMDb's non-commercial datasets](https://developer.imdb.com/non-commercial-datasets/):
+download `title.basics`, `title.ratings`, `title.principals` and `name.basics` (`.tsv.gz`, about 1.3 GB),
+then choose them on the welcome screen ("Play with real actors") or in the Office.
+The files are streamed and processed on the device (`src/talent/`), producing a pack of a few MB
+that is stored locally and never uploaded. Each person's fame, skill, age and genre strengths are
+computed from their real films up to the year being played. No personalities, scandals or deaths
+are invented for real people. IMDb data is for personal, non-commercial use, so neither the
+downloaded files nor packs are ever committed or hosted (see `.gitignore`).
+
 ## Report a bug
 
 Use **Report a bug** in the game's Office screen, or [open an issue](https://github.com/tagban/Greenlit/issues/new/choose).

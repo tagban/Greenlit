@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { CAMPAIGN_YEARS, DEPTS, DEPT_LABEL, GENRES, GENRE_IDS, MONTHS, SUBGENRES, START_YEAR, subgenreById, type GenreId } from '../game/data'
 import { filmWeights, newFilm } from '../game/sim'
 import { LOAN_LIMIT, LOAN_STEP, canStartFilm, lastSavedAt, saveGame, setPoster, exportSave, importSave, isClean, lifetimeGross, repayLoan, takeLoan } from '../game/store'
@@ -7,12 +7,17 @@ import type { Game, Role } from '../game/types'
 import { campaignOver, monthOf, newGame, yearOf } from '../game/world'
 import { careerNote, ImageUpload, Meter, Poster, ShareButton, Stat, StudioLogo, TalentCard, trendLabel } from '../ui'
 import { applyTheme, loadTheme, type Theme } from '../theme'
+import TalentPackPanel from '../talent/TalentPackPanel'
+import { loadPack, type TalentPack } from '../talent/pack'
 
 type Props = { game: Game; setGame: (g: Game | undefined) => void }
 
 // ---------- New studio ----------
 
 export function NewStudio({ onCreate, onImport }: { onCreate: (g: Game) => void; onImport: (g: Game) => void }) {
+  const [pack, setPack] = useState<TalentPack | undefined>()
+  const [real, setReal] = useState(false)
+  useEffect(() => { loadPack().then(setPack) }, [])
   const [name, setName] = useState('')
   const [owner, setOwner] = useState('')
   const [error, setError] = useState('')
@@ -32,7 +37,21 @@ export function NewStudio({ onCreate, onImport }: { onCreate: (g: Game) => void;
         <input value={owner} maxLength={24} placeholder="Jamie R." onChange={(e) => setOwner(e.target.value)} />
       </label>
       {!clean && <em className="bad">Pick names you’d be happy to see on a leaderboard.</em>}
-      <button className="primary" disabled={!ready} onClick={() => onCreate(newGame(name.trim(), owner.trim()))}>Open the studio</button>
+      {pack ? (
+        <div className="field">
+          <span>Talent</span>
+          <div className="tabs">
+            <button className={!real ? 'active' : ''} onClick={() => setReal(false)}>Fictional</button>
+            <button className={real ? 'active' : ''} onClick={() => setReal(true)}>Real actors (your IMDb pack)</button>
+          </div>
+        </div>
+      ) : (
+        <details className="real-actors">
+          <summary>Play with real actors (IMDb)</summary>
+          <TalentPackPanel onChange={(p) => { setPack(p); setReal(Boolean(p)) }} />
+        </details>
+      )}
+      <button className="primary" disabled={!ready} onClick={() => onCreate(newGame(name.trim(), owner.trim(), real ? pack : undefined))}>Open the studio</button>
       <label className="link import">
         Import a saved studio from a file
         <input type="file" accept="application/json" hidden onChange={async (e) => {
@@ -283,6 +302,8 @@ export function Settings({ game, setGame }: Props) {
           }} />
         </label>
       </div>
+      <h3>Real actors (IMDb)</h3>
+      <TalentPackPanel />
       <h3>Start over</h3>
       {confirm ? (
         <div className="row">

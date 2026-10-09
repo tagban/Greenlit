@@ -47,7 +47,8 @@ function recastChoice(c: Ctx, label: string, extra: Partial<EventChoice>): Event
 const TEMPLATES: Template[] = [
   {
     key: 'lead-dies',
-    weight: (c) => (!c.lead ? 0 : c.lead.age >= 65 ? 0.5 : c.lead.age >= 55 ? 0.2 : 0.04),
+    // Never for real people: we don't invent deaths for them.
+    weight: (c) => (!c.lead || c.lead.source ? 0 : c.lead.age >= 65 ? 0.5 : c.lead.age >= 55 ? 0.2 : 0.04),
     make: (c) => {
       const name = c.lead!.name
       const fans = beloved(c.lead)
@@ -86,7 +87,7 @@ const TEMPLATES: Template[] = [
   },
   {
     key: 'lead-quits',
-    weight: (c) => (c.lead && c.lead.temperament >= 50 ? 0.6 + c.lead.temperament / 100 : 0),
+    weight: (c) => (c.lead && !c.lead.source && c.lead.temperament >= 50 ? 0.6 + c.lead.temperament / 100 : 0),
     make: (c) => {
       const name = c.lead!.name
       const choices = [
@@ -123,7 +124,7 @@ const TEMPLATES: Template[] = [
   },
   {
     key: 'scandal',
-    weight: (c) => (c.lead && c.lead.star >= 30 ? 0.5 : 0),
+    weight: (c) => (c.lead && !c.lead.source && c.lead.star >= 30 ? 0.5 : 0),
     make: (c) => {
       const name = c.lead!.name
       const choices = [
@@ -162,7 +163,7 @@ const TEMPLATES: Template[] = [
   },
   {
     key: 'director-final-cut',
-    weight: (c) => (c.director && c.director.temperament >= 45 ? 0.6 : 0.15),
+    weight: (c) => (!c.director ? 0 : c.director.source ? 0.15 : c.director.temperament >= 45 ? 0.6 : 0.15),
     make: (c) => {
       const d = c.director!
       const visionary = d.skill >= 65
